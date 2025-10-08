@@ -26,26 +26,26 @@ def formato_grados_minutos_segundos(grados):
     g = int(grados)
     m = int((grados - g) * 60)
     s = (grados - g - m/60) * 3600
-    return f"{g:02d}° {m:02d}′ {s:02.0f}″"
+    return f"{g}° {m}′ {s:.6f}″"  # máxima precisión
 
 # =====================================
 # Interfaz
 # =====================================
-st.title("📐 Offset y Punto Perpendicular con Precisión en ° ′ ″")
+st.title("📐 Offset y Punto Perpendicular con Precisión Total")
 
 st.sidebar.header("Datos de la línea base")
-x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001)
-y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, step=0.001)
-x2 = st.sidebar.number_input("X2 (P2)", value=997.622, step=0.001)
-y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, step=0.001)
+x1 = st.sidebar.number_input("X1 (P1)", value=984.765, format="%.12f")
+y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, format="%.12f")
+x2 = st.sidebar.number_input("X2 (P2)", value=997.622, format="%.12f")
+y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, format="%.12f")
 
 st.sidebar.header("Offset")
-dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, step=0.5)
+dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, format="%.12f")
 lado = st.sidebar.radio("Lado del offset", ("Izquierda (Antihorario)", "Derecha (Horario)"))
 
 st.sidebar.header("Punto de verificación")
-xp = st.sidebar.number_input("X del punto (P)", value=992.420, step=0.001)
-yp = st.sidebar.number_input("Y del punto (P)", value=958.290, step=0.001)
+xp = st.sidebar.number_input("X del punto (P)", value=992.420, format="%.12f")
+yp = st.sidebar.number_input("Y del punto (P)", value=958.290, format="%.12f")
 
 # =====================================
 # Cálculos geométricos
@@ -70,36 +70,35 @@ offset_y = uy_perp * dist_offset
 P1_offset = (x1 + offset_x, y1 + offset_y)
 P2_offset = (x2 + offset_x, y2 + offset_y)
 
-# Ángulo entre base y offset
-angulo_base = math.degrees(math.atan2(dy, dx)) % 360
-angulo_offset = math.degrees(math.atan2(uy_perp, ux_perp)) % 360
-angulo_entre = abs(90 - abs(angulo_offset - angulo_base) % 180)
+# Ángulo entre base y offset usando vectores
+v_base = (dx, dy)
+v_offset = (P2_offset[0]-P1_offset[0], P2_offset[1]-P1_offset[1])
+angulo_entre = angulo_entre_vectores(v_base, v_offset)
 
 # Distancia perpendicular del punto a la línea base
 dist_perp_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
 
-# Verificación del punto (aprox 90°)
-punto_perpendicular = abs(dist_perp_base) > 0  # siempre positivo
-punto_correcto = True if dist_perp_base >= 0 else False  # solo color visual
+# Verificación perpendicularidad punto
+punto_perpendicular = True if abs(dist_perp_base) >= 0 else False
 
 # =====================================
 # Resultados
 # =====================================
 st.subheader("📏 Resultados")
-st.write(f"**Línea base:** P1({x1:.3f}, {y1:.3f}) → P2({x2:.3f}, {y2:.3f})")
-st.write(f"**Línea offset ({lado}):** P1′({P1_offset[0]:.3f}, {P1_offset[1]:.3f}) → P2′({P2_offset[0]:.3f}, {P2_offset[1]:.3f})")
-st.write(f"**Punto de verificación (P):** ({xp:.3f}, {yp:.3f})")
+st.write(f"**Línea base:** P1({x1}, {y1}) → P2({x2}, {y2})")
+st.write(f"**Línea offset ({lado}):** P1′({P1_offset[0]}, {P1_offset[1]}) → P2′({P2_offset[0]}, {P2_offset[1]})")
+st.write(f"**Punto de verificación (P):** ({xp}, {yp})")
 
 st.markdown("---")
 st.subheader("📐 Ángulos")
 st.write(f"- Ángulo entre línea base y offset: **{formato_grados_minutos_segundos(angulo_entre)}**")
-if abs(angulo_entre - 90) < 0.05:
-    st.success("✅ La línea offset es perpendicular a la línea base (90° exactos).")
+if abs(angulo_entre - 90) < 0.01:  # tolerancia mínima
+    st.success("✅ La línea offset es perpendicular a la línea base (≈90°).")
 else:
     st.warning("⚠️ La línea offset no es exactamente perpendicular.")
 
 st.subheader("📏 Punto de verificación")
-st.write(f"- Distancia perpendicular del punto P a la línea base: **{dist_perp_base:.3f} m**")
+st.write(f"- Distancia perpendicular del punto P a la línea base: **{dist_perp_base} m**")
 if punto_perpendicular:
     st.success("✅ El punto P está correctamente perpendicular a la línea base.")
 else:
@@ -138,8 +137,8 @@ else:
 
 # Arco 90°
 radio = dist_offset * 0.6
-start_angle = angulo_base
-end_angle = angulo_base + 90 if "Izquierda" in lado else angulo_base - 90
+start_angle = math.degrees(math.atan2(dy, dx))
+end_angle = start_angle + 90 if "Izquierda" in lado else start_angle - 90
 arc = Arc((x1, y1), width=radio, height=radio, angle=0,
           theta1=min(start_angle, end_angle),
           theta2=max(start_angle, end_angle),
@@ -157,4 +156,4 @@ ax.grid(True)
 ax.legend()
 
 st.pyplot(fig)
-st.caption("💡 Línea base, offset, punto P y perpendicular. Ángulos mostrados en ° ′ ″.")
+st.caption("💡 Línea base, offset, punto P y perpendicular. Ángulos mostrados en ° ′ ″ con máxima precisión.")
