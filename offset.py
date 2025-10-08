@@ -3,12 +3,13 @@ import math
 import matplotlib.pyplot as plt
 
 # ===========================================
-# Título y descripción
+# Título
 # ===========================================
-st.title("📐 Cálculo de Línea Offset (una línea de referencia)")
+st.title("📐 Cálculo de Línea Offset Alineada a la Referencia")
 st.write("""
-Esta aplicación calcula una **línea paralela (offset)** a partir de una **línea base**
-definida por dos puntos P1 y P2, una distancia y el lado del desplazamiento.
+Esta herramienta genera una **línea paralela (offset)** perfectamente alineada
+con una **línea de referencia** entre P1 y P2, desplazada a izquierda o derecha
+según la distancia especificada.
 """)
 
 # ===========================================
@@ -29,74 +30,88 @@ lado = st.sidebar.radio(
 )
 
 # ===========================================
-# Cálculos
+# Cálculos geométricos
 # ===========================================
 dx = x2 - x1
 dy = y2 - y1
 
-# Vector perpendicular antihorario
-vx = -dy
-vy = dx
+# Longitud de la línea
+L = math.sqrt(dx**2 + dy**2)
 
-mag = math.sqrt(vx**2 + vy**2)
+# Vector unitario de dirección (alineado a la línea base)
+ux_dir = dx / L
+uy_dir = dy / L
 
-ux = (vx / mag) * dist_offset
-uy = (vy / mag) * dist_offset
-
-# Calcular puntos desplazados
+# Vector perpendicular (izquierda = antihorario)
 if "Izquierda" in lado:
-    P1_offset = (x1 - ux, y1 + uy)
-    P2_offset = (x2 - ux, y2 + uy)
+    # rotación 90° antihoraria
+    ux_perp = -uy_dir
+    uy_perp = ux_dir
 else:
-    P1_offset = (x1 + ux, y1 - uy)
-    P2_offset = (x2 + ux, y2 - uy)
+    # rotación 90° horaria
+    ux_perp = uy_dir
+    uy_perp = -ux_dir
+
+# Desplazamiento perpendicular escalado por distancia
+offset_x = ux_perp * dist_offset
+offset_y = uy_perp * dist_offset
+
+# Nueva línea paralela (offset)
+P1_offset = (x1 + offset_x, y1 + offset_y)
+P2_offset = (x2 + offset_x, y2 + offset_y)
 
 # ===========================================
-# Resultados numéricos
+# Cálculo del ángulo (opcional, para topografía)
 # ===========================================
-st.subheader("📍 Coordenadas calculadas")
+angulo_rad = math.atan2(dy, dx)
+angulo_deg = math.degrees(angulo_rad)
 
-st.write("**Línea de referencia (original):**")
+if angulo_deg < 0:
+    angulo_deg += 360
+
+# ===========================================
+# Resultados
+# ===========================================
+st.subheader("📍 Coordenadas y datos calculados")
+
+st.write(f"**Ángulo de la línea de referencia:** {angulo_deg:.2f}°")
+st.write("**Línea original:**")
 st.write(f"P1: ({x1:.3f}, {y1:.3f})")
 st.write(f"P2: ({x2:.3f}, {y2:.3f})")
 
-st.write(f"**Línea Offset ({lado}):**")
+st.write(f"**Línea offset ({lado}):**")
 st.write(f"P1: ({P1_offset[0]:.3f}, {P1_offset[1]:.3f})")
 st.write(f"P2: ({P2_offset[0]:.3f}, {P2_offset[1]:.3f})")
 
 # ===========================================
-# Visualización gráfica
+# Visualización
 # ===========================================
-st.subheader("📊 Visualización gráfica")
+st.subheader("📊 Visualización de la línea y su offset")
 
-fig, ax = plt.subplots(figsize=(6, 6))
+fig, ax = plt.subplots(figsize=(7, 7))
 
-# Línea original
-ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea original')
+# Línea de referencia
+ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea de referencia')
 
-# Línea offset
-ax.plot(
-    [P1_offset[0], P2_offset[0]],
-    [P1_offset[1], P2_offset[1]],
-    'r--' if "Derecha" in lado else 'b--',
-    linewidth=2,
-    label=f'Línea offset ({lado})'
-)
+# Línea offset (paralela)
+color = 'b' if "Izquierda" in lado else 'r'
+ax.plot([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], 
+        color=color, linestyle='--', linewidth=2, label=f'Offset {lado}')
 
 # Puntos
-ax.scatter([x1, x2], [y1, y2], color='black', s=40, label="Puntos originales")
-ax.scatter([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]],
-           color='red' if "Derecha" in lado else 'blue', s=40, label="Puntos offset")
+ax.scatter([x1, x2], [y1, y2], color='black', s=50)
+ax.scatter([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], color=color, s=50)
 
-# Etiquetas
-ax.text(x1, y1, "P1", fontsize=9, ha="right")
-ax.text(x2, y2, "P2", fontsize=9, ha="right")
+# Línea auxiliar para mostrar perpendicularidad
+ax.plot([x1, P1_offset[0]], [y1, P1_offset[1]], 'g:', linewidth=1)
+ax.plot([x2, P2_offset[0]], [y2, P2_offset[1]], 'g:', linewidth=1)
 
 ax.set_aspect('equal', adjustable='datalim')
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
-ax.grid(True)
 ax.legend()
+ax.grid(True)
+
 st.pyplot(fig)
 
-st.caption("💡 Ingresa coordenadas y elige el lado del offset para visualizar el resultado.")
+st.caption("💡 La línea offset está perfectamente paralela y alineada a la línea de referencia.")
