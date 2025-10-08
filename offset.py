@@ -22,16 +22,20 @@ def angulo_entre_vectores(v1, v2):
     return ang
 
 def formato_grados_minutos_segundos(grados):
-    """Convierte grados decimales a formato ° ′ ″"""
+    """Convierte grados decimales a formato ° ′ ″ con 3 decimales en segundos"""
     g = int(grados)
     m = int((grados - g) * 60)
     s = (grados - g - m/60) * 3600
-    return f"{g}° {m}′ {s:.6f}″"  # máxima precisión
+    return f"{g}° {m}′ {s:.3f}″"
+
+def mostrar_3_decimales(valor):
+    """Muestra valor con 3 decimales sin redondear el valor interno"""
+    return f"{valor:.3f}"
 
 # =====================================
 # Interfaz
 # =====================================
-st.title("📐 Offset y Punto Perpendicular con Precisión Total")
+st.title("📐 Offset y Punto Perpendicular con Precisión Topográfica")
 
 st.sidebar.header("Datos de la línea base")
 x1 = st.sidebar.number_input("X1 (P1)", value=984.765, format="%.12f")
@@ -85,9 +89,9 @@ punto_perpendicular = True if abs(dist_perp_base) >= 0 else False
 # Resultados
 # =====================================
 st.subheader("📏 Resultados")
-st.write(f"**Línea base:** P1({x1}, {y1}) → P2({x2}, {y2})")
-st.write(f"**Línea offset ({lado}):** P1′({P1_offset[0]}, {P1_offset[1]}) → P2′({P2_offset[0]}, {P2_offset[1]})")
-st.write(f"**Punto de verificación (P):** ({xp}, {yp})")
+st.write(f"**Línea base:** P1({mostrar_3_decimales(x1)}, {mostrar_3_decimales(y1)}) → P2({mostrar_3_decimales(x2)}, {mostrar_3_decimales(y2)})")
+st.write(f"**Línea offset ({lado}):** P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_decimales(P1_offset[1])}) → P2′({mostrar_3_decimales(P2_offset[0])}, {mostrar_3_decimales(P2_offset[1])})")
+st.write(f"**Punto de verificación (P):** ({mostrar_3_decimales(xp)}, {mostrar_3_decimales(yp)})")
 
 st.markdown("---")
 st.subheader("📐 Ángulos")
@@ -98,7 +102,7 @@ else:
     st.warning("⚠️ La línea offset no es exactamente perpendicular.")
 
 st.subheader("📏 Punto de verificación")
-st.write(f"- Distancia perpendicular del punto P a la línea base: **{dist_perp_base} m**")
+st.write(f"- Distancia perpendicular del punto P a la línea base: **{mostrar_3_decimales(dist_perp_base)} m**")
 if punto_perpendicular:
     st.success("✅ El punto P está correctamente perpendicular a la línea base.")
 else:
@@ -156,4 +160,4 @@ ax.grid(True)
 ax.legend()
 
 st.pyplot(fig)
-st.caption("💡 Línea base, offset, punto P y perpendicular. Ángulos mostrados en ° ′ ″ con máxima precisión.")
+st.caption("💡 Línea base, offset, punto P y perpendicular. Ángulos mostrados en ° ′ ″. Coordenadas con 3 decimales visibles.")
