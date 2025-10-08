@@ -1,11 +1,10 @@
 import streamlit as st
 import math
 import matplotlib.pyplot as plt
-from matplotlib.patches import Arc
 
-# =====================================
+# ========================
 # Funciones auxiliares
-# =====================================
+# ========================
 def distancia_punto_linea(x1, y1, x2, y2, xp, yp):
     num = abs((x2 - x1)*(y1 - yp) - (x1 - xp)*(y2 - y1))
     den = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
@@ -16,7 +15,7 @@ def angulo_entre_vectores(v1, v2):
     mag1 = math.sqrt(v1[0]**2 + v1[1]**2)
     mag2 = math.sqrt(v2[0]**2 + v2[1]**2)
     cosang = dot / (mag1 * mag2)
-    ang = math.degrees(math.acos(max(min(cosang, 1), -1)))
+    ang = math.degrees(math.acos(max(min(cosang,1),-1)))
     return ang
 
 def formato_grados_minutos_segundos(grados):
@@ -28,10 +27,10 @@ def formato_grados_minutos_segundos(grados):
 def mostrar_3_decimales(valor):
     return f"{valor:.3f}"
 
-# =====================================
-# Interfaz
-# =====================================
-st.title("📐 Offset y Perpendicularidad con Múltiples Puntos")
+# ========================
+# Interfaz Streamlit
+# ========================
+st.title("📐 Offset y Perpendicularidad con Corrección Automática")
 
 st.sidebar.header("Línea base")
 x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001, format="%.3f")
@@ -44,7 +43,7 @@ dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, st
 lado = st.sidebar.radio("Lado del offset", ("Izquierda (Antihorario)", "Derecha (Horario)"))
 
 st.sidebar.header("Puntos de verificación")
-num_puntos = st.sidebar.number_input("Cantidad de puntos de verificación", min_value=1, max_value=5, value=1, step=1)
+num_puntos = st.sidebar.number_input("Cantidad de puntos", min_value=1, max_value=5, value=1, step=1)
 puntos = []
 for i in range(num_puntos):
     st.sidebar.markdown(f"**Punto {i+1}**")
@@ -52,9 +51,9 @@ for i in range(num_puntos):
     yp_i = st.sidebar.number_input(f"Y{i+1}", value=958.290, step=0.001, format="%.3f")
     puntos.append((xp_i, yp_i))
 
-# =====================================
+# ========================
 # Cálculos geométricos
-# =====================================
+# ========================
 dx = x2 - x1
 dy = y2 - y1
 L = math.sqrt(dx**2 + dy**2)
@@ -77,11 +76,12 @@ v_base = (dx, dy)
 v_offset = (P2_offset[0]-P1_offset[0], P2_offset[1]-P1_offset[1])
 angulo_entre = angulo_entre_vectores(v_base, v_offset)
 
-# =====================================
-# Evaluación de los puntos
-# =====================================
+# ========================
+# Evaluación puntos
+# ========================
 tolerancia = 0.1
 resultados = []
+
 for (xp, yp) in puntos:
     v_point_base = (xp - x1, yp - y1)
     ang_base = angulo_entre_vectores(v_base, v_point_base)
@@ -94,6 +94,17 @@ for (xp, yp) in puntos:
     dist_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
     dist_offset_line = distancia_punto_linea(P1_offset[0], P1_offset[1], P2_offset[0], P2_offset[1], xp, yp)
     
+    # Coordenada corregida si no es perpendicular a la base
+    if not perp_base:
+        ux_perp_corr = -dy / L
+        uy_perp_corr = dx / L
+        d = (dx*(y1 - yp) - (x1 - xp)*dy)/L
+        x_corr = xp - ux_perp_corr*d
+        y_corr = yp - uy_perp_corr*d
+    else:
+        x_corr = None
+        y_corr = None
+    
     resultados.append({
         "coord": (xp, yp),
         "ang_base": ang_base,
@@ -101,28 +112,14 @@ for (xp, yp) in puntos:
         "dist_base": dist_base,
         "ang_offset": ang_offset,
         "perp_offset": perp_offset,
-        "dist_offset": dist_offset_line
+        "dist_offset": dist_offset_line,
+        "corr_x": x_corr,
+        "corr_y": y_corr
     })
 
-# =====================================
-# Evaluación línea entre dos puntos
-# =====================================
-perp_linea_puntos_base = None
-perp_linea_puntos_offset = None
-angulo_linea_puntos_base = None
-angulo_linea_puntos_offset = None
-
-if len(puntos) == 2:
-    (xp1, yp1), (xp2, yp2) = puntos
-    v_puntos = (xp2 - xp1, yp2 - yp1)
-    angulo_linea_puntos_base = angulo_entre_vectores(v_base, v_puntos)
-    angulo_linea_puntos_offset = angulo_entre_vectores(v_offset, v_puntos)
-    perp_linea_puntos_base = abs(angulo_linea_puntos_base - 90) <= tolerancia
-    perp_linea_puntos_offset = abs(angulo_linea_puntos_offset - 90) <= tolerancia
-
-# =====================================
-# Resultados en la app
-# =====================================
+# ========================
+# Resultados en app
+# ========================
 st.subheader("📏 Resultados")
 st.write(f"Línea base: P1({mostrar_3_decimales(x1)}, {mostrar_3_decimales(y1)}) → P2({mostrar_3_decimales(x2)}, {mostrar_3_decimales(y2)})")
 st.write(f"Línea offset ({lado}): P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_decimales(P1_offset[1])}) → P2′({mostrar_3_decimales(P2_offset[0])}, {mostrar_3_decimales(P2_offset[1])})")
@@ -142,28 +139,16 @@ for idx, r in enumerate(resultados):
         st.success("✅ Perpendicular a la línea base")
     else:
         st.error("❌ No perpendicular a la línea base")
+        st.info(f"Coordenada corregida para perpendicularidad: ({mostrar_3_decimales(r['corr_x'])}, {mostrar_3_decimales(r['corr_y'])})")
     if r["perp_offset"]:
         st.success("✅ Perpendicular a la línea offset")
     else:
         st.error("❌ No perpendicular a la línea offset")
     st.markdown("---")
 
-if len(puntos) == 2:
-    st.subheader("📏 Línea entre los dos puntos de verificación")
-    st.write(f"Ángulo con línea base: {formato_grados_minutos_segundos(angulo_linea_puntos_base)}")
-    st.write(f"Ángulo con línea offset: {formato_grados_minutos_segundos(angulo_linea_puntos_offset)}")
-    if perp_linea_puntos_base:
-        st.success("✅ La línea entre los dos puntos es perpendicular a la línea base")
-    else:
-        st.error("❌ La línea entre los dos puntos NO es perpendicular a la línea base")
-    if perp_linea_puntos_offset:
-        st.success("✅ La línea entre los dos puntos es perpendicular a la línea offset")
-    else:
-        st.error("❌ La línea entre los dos puntos NO es perpendicular a la línea offset")
-
-# =====================================
+# ========================
 # Gráfico
-# =====================================
+# ========================
 fig, ax = plt.subplots(figsize=(8,8))
 # Base y offset
 ax.plot([x1, x2],[y1, y2],'k-', linewidth=2,label='Base')
@@ -179,13 +164,10 @@ for r in resultados:
     color = 'green' if r["perp_base"] else 'red'
     ax.scatter(xp, yp, color=color, s=80)
     ax.text(xp, yp, "P", fontsize=9, ha='left', va='bottom', color=color)
-
-# Línea entre los dos puntos si hay 2
-if len(puntos) == 2:
-    xp1, yp1 = puntos[0]
-    xp2, yp2 = puntos[1]
-    color_linea = 'green' if perp_linea_puntos_base else 'red'
-    ax.plot([xp1, xp2],[yp1, yp2], color=color_linea, linewidth=2, linestyle=':', label='Línea entre puntos')
+    # Punto corregido
+    if r["corr_x"] is not None:
+        ax.scatter(r["corr_x"], r["corr_y"], color='orange', s=100, marker='x')
+        ax.plot([xp, r["corr_x"]],[yp, r["corr_y"]],'orange', linestyle='--')
 
 ax.set_aspect('equal', adjustable='datalim')
 ax.set_xlabel("X")
@@ -193,4 +175,4 @@ ax.set_ylabel("Y")
 ax.grid(True)
 ax.legend()
 st.pyplot(fig)
-st.caption("💡 Verde = perpendicular, Rojo = no perpendicular. Coordenadas con 3 decimales.")
+st.caption("💡 Verde = perpendicular, Rojo = no perpendicular, Naranja = coordenada corregida. Coordenadas con 3 decimales.")
