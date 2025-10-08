@@ -2,141 +2,101 @@ import streamlit as st
 import math
 import matplotlib.pyplot as plt
 
-# ============================
-# CONFIGURACIÓN INICIAL
-# ============================
-st.title("📐 Calculadora de Offset para Polilíneas")
+# ===========================================
+# Título y descripción
+# ===========================================
+st.title("📐 Cálculo de Línea Offset (una línea de referencia)")
 st.write("""
-Esta aplicación calcula líneas paralelas (offsets izquierda y derecha)
-a una polilínea definida por una lista de puntos.
-Ideal para topografía, diseño vial o delimitación de linderos.
+Esta aplicación calcula una **línea paralela (offset)** a partir de una **línea base**
+definida por dos puntos P1 y P2, una distancia y el lado del desplazamiento.
 """)
 
-st.sidebar.header("Parámetros de entrada")
+# ===========================================
+# Entradas del usuario
+# ===========================================
+st.sidebar.header("Datos de entrada")
 
-# ============================
-# Entrada de puntos
-# ============================
-st.sidebar.write("Ingrese las coordenadas de la polilínea (X, Y):")
-points_text = st.sidebar.text_area(
-    "Formato: una pareja por línea, separada por coma.\nEjemplo:\n984.765,964.723\n997.622,980.027\n1010.300,990.500",
-    value="984.765,964.723\n997.622,980.027\n1010.300,990.500",
-    height=150
+x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001)
+y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, step=0.001)
+x2 = st.sidebar.number_input("X2 (P2)", value=997.622, step=0.001)
+y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, step=0.001)
+
+dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, step=0.5)
+
+lado = st.sidebar.radio(
+    "Seleccione el lado del desplazamiento:",
+    ("Izquierda (Antihorario)", "Derecha (Horario)")
 )
 
-dist_offset = st.sidebar.number_input("Distancia del Offset (m)", value=10.0, step=0.5)
+# ===========================================
+# Cálculos
+# ===========================================
+dx = x2 - x1
+dy = y2 - y1
 
-# ============================
-# Conversión de texto a lista de puntos
-# ============================
-points = []
-for line in points_text.strip().split("\n"):
-    try:
-        x_str, y_str = line.strip().split(",")
-        points.append((float(x_str), float(y_str)))
-    except:
-        pass
+# Vector perpendicular antihorario
+vx = -dy
+vy = dx
 
-if len(points) < 2:
-    st.warning("⚠️ Ingrese al menos dos puntos para formar una línea.")
-    st.stop()
+mag = math.sqrt(vx**2 + vy**2)
 
-# ============================
-# CÁLCULO DE OFFSETS
-# ============================
+ux = (vx / mag) * dist_offset
+uy = (vy / mag) * dist_offset
 
-def offset_segment(p1, p2, dist):
-    """Calcula los puntos desplazados a la izquierda y derecha de un segmento."""
-    x1, y1 = p1
-    x2, y2 = p2
+# Calcular puntos desplazados
+if "Izquierda" in lado:
+    P1_offset = (x1 - ux, y1 + uy)
+    P2_offset = (x2 - ux, y2 + uy)
+else:
+    P1_offset = (x1 + ux, y1 - uy)
+    P2_offset = (x2 + ux, y2 - uy)
 
-    dx = x2 - x1
-    dy = y2 - y1
+# ===========================================
+# Resultados numéricos
+# ===========================================
+st.subheader("📍 Coordenadas calculadas")
 
-    # Vector perpendicular antihorario (izquierda)
-    vx = -dy
-    vy = dx
+st.write("**Línea de referencia (original):**")
+st.write(f"P1: ({x1:.3f}, {y1:.3f})")
+st.write(f"P2: ({x2:.3f}, {y2:.3f})")
 
-    mag = math.sqrt(vx**2 + vy**2)
-    ux = (vx / mag) * dist
-    uy = (vy / mag) * dist
+st.write(f"**Línea Offset ({lado}):**")
+st.write(f"P1: ({P1_offset[0]:.3f}, {P1_offset[1]:.3f})")
+st.write(f"P2: ({P2_offset[0]:.3f}, {P2_offset[1]:.3f})")
 
-    # Izquierda
-    p1_izq = (x1 - ux, y1 + uy)
-    p2_izq = (x2 - ux, y2 + uy)
+# ===========================================
+# Visualización gráfica
+# ===========================================
+st.subheader("📊 Visualización gráfica")
 
-    # Derecha
-    p1_der = (x1 + ux, y1 - uy)
-    p2_der = (x2 + ux, y2 - uy)
-
-    return p1_izq, p2_izq, p1_der, p2_der
-
-# Generar offsets de todos los tramos
-left_points = []
-right_points = []
-
-for i in range(len(points) - 1):
-    p1 = points[i]
-    p2 = points[i + 1]
-
-    p1_izq, p2_izq, p1_der, p2_der = offset_segment(p1, p2, dist_offset)
-
-    if i == 0:
-        left_points.append(p1_izq)
-        right_points.append(p1_der)
-    left_points.append(p2_izq)
-    right_points.append(p2_der)
-
-# ============================
-# MOSTRAR RESULTADOS NUMÉRICOS
-# ============================
-st.subheader("📍 Coordenadas de los Offsets")
-
-col1, col2 = st.columns(2)
-with col1:
-    st.markdown("**Línea Izquierda (Antihorario)**")
-    for i, p in enumerate(left_points, start=1):
-        st.write(f"P{i}: ({p[0]:.3f}, {p[1]:.3f})")
-
-with col2:
-    st.markdown("**Línea Derecha (Horario)**")
-    for i, p in enumerate(right_points, start=1):
-        st.write(f"P{i}: ({p[0]:.3f}, {p[1]:.3f})")
-
-# ============================
-# GRÁFICO
-# ============================
-st.subheader("📊 Visualización de Polilínea y Offsets")
-
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, ax = plt.subplots(figsize=(6, 6))
 
 # Línea original
-x_vals = [p[0] for p in points]
-y_vals = [p[1] for p in points]
-ax.plot(x_vals, y_vals, 'k-', linewidth=2, label='Línea Original')
+ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea original')
 
-# Línea izquierda
-x_left = [p[0] for p in left_points]
-y_left = [p[1] for p in left_points]
-ax.plot(x_left, y_left, 'b--', linewidth=2, label='Offset Izquierda')
-
-# Línea derecha
-x_right = [p[0] for p in right_points]
-y_right = [p[1] for p in right_points]
-ax.plot(x_right, y_right, 'r--', linewidth=2, label='Offset Derecha')
+# Línea offset
+ax.plot(
+    [P1_offset[0], P2_offset[0]],
+    [P1_offset[1], P2_offset[1]],
+    'r--' if "Derecha" in lado else 'b--',
+    linewidth=2,
+    label=f'Línea offset ({lado})'
+)
 
 # Puntos
-ax.scatter(x_vals, y_vals, color='black', s=40)
-ax.scatter(x_left, y_left, color='blue', s=40)
-ax.scatter(x_right, y_right, color='red', s=40)
+ax.scatter([x1, x2], [y1, y2], color='black', s=40, label="Puntos originales")
+ax.scatter([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]],
+           color='red' if "Derecha" in lado else 'blue', s=40, label="Puntos offset")
 
-# Configuración del gráfico
+# Etiquetas
+ax.text(x1, y1, "P1", fontsize=9, ha="right")
+ax.text(x2, y2, "P2", fontsize=9, ha="right")
+
 ax.set_aspect('equal', adjustable='datalim')
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.grid(True)
 ax.legend()
-
 st.pyplot(fig)
 
-st.caption("💡 Modifica los puntos o la distancia de offset para ver los cambios instantáneamente.")
+st.caption("💡 Ingresa coordenadas y elige el lado del offset para visualizar el resultado.")
