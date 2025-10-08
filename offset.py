@@ -29,13 +29,12 @@ def formato_grados_minutos_segundos(grados):
     return f"{g}° {m}′ {s:.3f}″"
 
 def mostrar_3_decimales(valor):
-    """Muestra valor con 3 decimales sin redondear el valor interno"""
     return f"{valor:.3f}"
 
 # =====================================
 # Interfaz
 # =====================================
-st.title("📐 Offset y Verificación de Perpendicularidad")
+st.title("📐 Offset y Verificación de Perpendicularidad con Múltiples Puntos")
 
 st.sidebar.header("Datos de la línea base")
 x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001, format="%.3f")
@@ -47,9 +46,14 @@ st.sidebar.header("Offset")
 dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, step=0.001, format="%.3f")
 lado = st.sidebar.radio("Lado del offset", ("Izquierda (Antihorario)", "Derecha (Horario)"))
 
-st.sidebar.header("Punto de verificación")
-xp = st.sidebar.number_input("X del punto (P)", value=992.420, step=0.001, format="%.3f")
-yp = st.sidebar.number_input("Y del punto (P)", value=958.290, step=0.001, format="%.3f")
+st.sidebar.header("Puntos de verificación")
+num_puntos = st.sidebar.number_input("Cantidad de puntos de verificación", min_value=1, max_value=5, value=1, step=1)
+puntos = []
+for i in range(num_puntos):
+    st.sidebar.markdown(f"**Punto {i+1}**")
+    xp_i = st.sidebar.number_input(f"X{i+1}", value=992.420, step=0.001, format="%.3f")
+    yp_i = st.sidebar.number_input(f"Y{i+1}", value=958.290, step=0.001, format="%.3f")
+    puntos.append((xp_i, yp_i))
 
 # =====================================
 # Cálculos geométricos
@@ -74,97 +78,88 @@ offset_y = uy_perp * dist_offset
 P1_offset = (x1 + offset_x, y1 + offset_y)
 P2_offset = (x2 + offset_x, y2 + offset_y)
 
-# Ángulo entre base y offset usando vectores
+# Ángulo entre base y offset
 v_base = (dx, dy)
 v_offset = (P2_offset[0]-P1_offset[0], P2_offset[1]-P1_offset[1])
 angulo_entre = angulo_entre_vectores(v_base, v_offset)
 
 # =====================================
-# Verificación perpendicularidad punto P
+# Evaluación de los puntos
 # =====================================
-# Vector de P1 a P
-v_point = (xp - x1, yp - y1)
-angulo_point = angulo_entre_vectores(v_base, v_point)
 tolerancia = 0.1  # grados
-punto_perpendicular = abs(angulo_point - 90) <= tolerancia
-
-# Distancia perpendicular del punto a la línea base
-dist_perp_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
+resultados = []
+for (xp, yp) in puntos:
+    v_point_base = (xp - x1, yp - y1)
+    ang_base = angulo_entre_vectores(v_base, v_point_base)
+    perp_base = abs(ang_base - 90) <= tolerancia
+    
+    v_point_offset = (xp - P1_offset[0], yp - P1_offset[1])
+    ang_offset = angulo_entre_vectores(v_offset, v_point_offset)
+    perp_offset = abs(ang_offset - 90) <= tolerancia
+    
+    dist_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
+    dist_offset_line = distancia_punto_linea(P1_offset[0], P1_offset[1], P2_offset[0], P2_offset[1], xp, yp)
+    
+    resultados.append({
+        "coord": (xp, yp),
+        "ang_base": ang_base,
+        "perp_base": perp_base,
+        "dist_base": dist_base,
+        "ang_offset": ang_offset,
+        "perp_offset": perp_offset,
+        "dist_offset": dist_offset_line
+    })
 
 # =====================================
-# Resultados
+# Resultados en la app
 # =====================================
 st.subheader("📏 Resultados")
 st.write(f"**Línea base:** P1({mostrar_3_decimales(x1)}, {mostrar_3_decimales(y1)}) → P2({mostrar_3_decimales(x2)}, {mostrar_3_decimales(y2)})")
 st.write(f"**Línea offset ({lado}):** P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_decimales(P1_offset[1])}) → P2′({mostrar_3_decimales(P2_offset[0])}, {mostrar_3_decimales(P2_offset[1])})")
-st.write(f"**Punto de verificación (P):** ({mostrar_3_decimales(xp)}, {mostrar_3_decimales(yp)})")
-
-st.markdown("---")
-st.subheader("📐 Ángulos")
 st.write(f"- Ángulo entre línea base y offset: **{formato_grados_minutos_segundos(angulo_entre)}**")
 if abs(angulo_entre - 90) < 0.01:
-    st.success("✅ La línea offset es perpendicular a la línea base (≈90°).")
+    st.success("✅ Línea offset perpendicular a la base.")
 else:
-    st.warning("⚠️ La línea offset no es exactamente perpendicular.")
+    st.warning("⚠️ Línea offset no perpendicular a la base.")
 
-st.subheader("📏 Punto de verificación")
-st.write(f"- Ángulo del punto P respecto a la línea base: **{formato_grados_minutos_segundos(angulo_point)}**")
-st.write(f"- Distancia perpendicular del punto P a la línea base: **{mostrar_3_decimales(dist_perp_base)} m**")
-if punto_perpendicular:
-    st.success("✅ El punto P está perpendicular a la línea base (≈90°).")
-else:
-    st.error("⚠️ El punto P NO está perpendicular a la línea base.")
+st.markdown("---")
+st.subheader("📏 Puntos de verificación")
+for idx, r in enumerate(resultados):
+    st.write(f"**Punto {idx+1}: ({mostrar_3_decimales(r['coord'][0])}, {mostrar_3_decimales(r['coord'][1])})**")
+    st.write(f"- Ángulo con base: {formato_grados_minutos_segundos(r['ang_base'])} | Distancia perpendicular: {mostrar_3_decimales(r['dist_base'])} m")
+    st.write(f"- Ángulo con offset: {formato_grados_minutos_segundos(r['ang_offset'])} | Distancia perpendicular: {mostrar_3_decimales(r['dist_offset'])} m")
+    if r["perp_base"]:
+        st.success("✅ Perpendicular a la línea base")
+    else:
+        st.error("❌ No perpendicular a la línea base")
+    if r["perp_offset"]:
+        st.success("✅ Perpendicular a la línea offset")
+    else:
+        st.error("❌ No perpendicular a la línea offset")
+    st.markdown("---")
 
 # =====================================
 # Gráfico
 # =====================================
-fig, ax = plt.subplots(figsize=(8, 8))
+fig, ax = plt.subplots(figsize=(8,8))
+ax.plot([x1, x2],[y1, y2],'k-', linewidth=2,label='Línea base')
+ax.plot([P1_offset[0],P2_offset[0]],[P1_offset[1],P2_offset[1]], color='b' if "Izquierda" in lado else 'r', linestyle='--', linewidth=2,label='Línea offset')
+ax.text(x1, y1, "P1", fontsize=9)
+ax.text(x2, y2, "P2", fontsize=9)
+ax.text(P1_offset[0], P1_offset[1], "P1′", fontsize=9)
+ax.text(P2_offset[0], P2_offset[1], "P2′", fontsize=9)
 
-# Línea base
-ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea base')
-ax.text(x1, y1, "P1", fontsize=9, ha='right', va='top', fontweight='bold')
-ax.text(x2, y2, "P2", fontsize=9, ha='left', va='bottom', fontweight='bold')
-
-# Línea offset
-color = 'r' if "Derecha" in lado else 'b'
-ax.plot([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], color=color, linestyle='--', linewidth=2, label='Línea offset')
-ax.text(P1_offset[0], P1_offset[1], "P1′", fontsize=9, ha='right', va='top', color=color, fontweight='bold')
-ax.text(P2_offset[0], P2_offset[1], "P2′", fontsize=9, ha='left', va='bottom', color=color, fontweight='bold')
-
-# Punto P
-ax.scatter(xp, yp, color='green' if punto_perpendicular else 'red', s=80, marker='o', label='Punto verificación')
-ax.text(xp, yp, "P", fontsize=9, ha='left', va='bottom', color='green' if punto_perpendicular else 'red', fontweight='bold')
-
-# Línea perpendicular desde P a la línea base
-if dx != 0:
-    m_base = dy / dx
-    m_perp = -1 / m_base
-    x_inter = (m_perp * xp - yp - m_base * x1 + y1) / (m_perp - m_base)
-    y_inter = m_base * (x_inter - x1) + y1
-    ax.plot([xp, x_inter], [yp, y_inter], 'g:' if punto_perpendicular else 'r:', linewidth=1.5, label='Perpendicular')
-    ax.scatter(x_inter, y_inter, color='orange', s=50)
-else:
-    ax.plot([x1, xp], [y1, yp], 'g:' if punto_perpendicular else 'r:', linewidth=1.5)
-
-# Arco 90° para línea offset
-radio = dist_offset * 0.6
-start_angle = math.degrees(math.atan2(dy, dx))
-end_angle = start_angle + 90 if "Izquierda" in lado else start_angle - 90
-arc = Arc((x1, y1), width=radio, height=radio, angle=0,
-          theta1=min(start_angle, end_angle),
-          theta2=max(start_angle, end_angle),
-          color='orange', lw=2)
-ax.add_patch(arc)
-ax.text(x1 + ux_dir * radio * 0.6 + ux_perp * radio * 0.6,
-        y1 + uy_dir * radio * 0.6 + uy_perp * radio * 0.6,
-        "90°", fontsize=10, color='orange', fontweight='bold')
-
-# Configuración gráfica
+# Dibujar puntos de verificación
+for r in resultados:
+    xp, yp = r["coord"]
+    color = 'green' if r["perp_base"] else 'red'
+    ax.scatter(xp, yp, color=color, s=80)
+    ax.text(xp, yp, "P", fontsize=9, ha='left', va='bottom', color=color)
+    
 ax.set_aspect('equal', adjustable='datalim')
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.grid(True)
 ax.legend()
-
 st.pyplot(fig)
-st.caption("💡 Línea base, offset y punto P. Verde = perpendicular, Rojo = no perpendicular. Coordenadas con 3 decimales visibles.")
+st.caption("💡 Verde = perpendicular, Rojo = no perpendicular. Coordenadas con 3 decimales.")
