@@ -38,18 +38,18 @@ def mostrar_3_decimales(valor):
 st.title("📐 Offset y Punto Perpendicular con Precisión Topográfica")
 
 st.sidebar.header("Datos de la línea base")
-x1 = st.sidebar.number_input("X1 (P1)", value=984.765, format="%.12f")
-y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, format="%.12f")
-x2 = st.sidebar.number_input("X2 (P2)", value=997.622, format="%.12f")
-y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, format="%.12f")
+x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001, format="%.3f")
+y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, step=0.001, format="%.3f")
+x2 = st.sidebar.number_input("X2 (P2)", value=997.622, step=0.001, format="%.3f")
+y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, step=0.001, format="%.3f")
 
 st.sidebar.header("Offset")
-dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, format="%.12f")
+dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, step=0.001, format="%.3f")
 lado = st.sidebar.radio("Lado del offset", ("Izquierda (Antihorario)", "Derecha (Horario)"))
 
 st.sidebar.header("Punto de verificación")
-xp = st.sidebar.number_input("X del punto (P)", value=992.420, format="%.12f")
-yp = st.sidebar.number_input("Y del punto (P)", value=958.290, format="%.12f")
+xp = st.sidebar.number_input("X del punto (P)", value=992.420, step=0.001, format="%.3f")
+yp = st.sidebar.number_input("Y del punto (P)", value=958.290, step=0.001, format="%.3f")
 
 # =====================================
 # Cálculos geométricos
