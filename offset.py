@@ -5,15 +5,15 @@ import matplotlib.pyplot as plt
 # ===========================================
 # Título
 # ===========================================
-st.title("📐 Cálculo de Línea Offset Alineada a la Referencia")
+st.title("📐 Offset Alineado y Verificación de Ángulo 90°")
 st.write("""
-Esta herramienta genera una **línea paralela (offset)** perfectamente alineada
-con una **línea de referencia** entre P1 y P2, desplazada a izquierda o derecha
-según la distancia especificada.
+Esta herramienta calcula una **línea offset paralela** a una línea de referencia 
+y verifica si el desplazamiento se realizó a **90° exactos (90°00′00″)** respecto 
+a la línea base.
 """)
 
 # ===========================================
-# Entradas del usuario
+# Entradas
 # ===========================================
 st.sidebar.header("Datos de entrada")
 
@@ -34,75 +34,88 @@ lado = st.sidebar.radio(
 # ===========================================
 dx = x2 - x1
 dy = y2 - y1
-
-# Longitud de la línea
 L = math.sqrt(dx**2 + dy**2)
 
-# Vector unitario de dirección (alineado a la línea base)
+# Vector unitario de la línea base
 ux_dir = dx / L
 uy_dir = dy / L
 
-# Vector perpendicular (izquierda = antihorario)
+# Vector perpendicular según el lado
 if "Izquierda" in lado:
-    # rotación 90° antihoraria
     ux_perp = -uy_dir
     uy_perp = ux_dir
 else:
-    # rotación 90° horaria
     ux_perp = uy_dir
     uy_perp = -ux_dir
 
-# Desplazamiento perpendicular escalado por distancia
+# Desplazamiento perpendicular escalado
 offset_x = ux_perp * dist_offset
 offset_y = uy_perp * dist_offset
 
-# Nueva línea paralela (offset)
+# Puntos offset
 P1_offset = (x1 + offset_x, y1 + offset_y)
 P2_offset = (x2 + offset_x, y2 + offset_y)
 
 # ===========================================
-# Cálculo del ángulo (opcional, para topografía)
+# Cálculo de ángulos
 # ===========================================
-angulo_rad = math.atan2(dy, dx)
-angulo_deg = math.degrees(angulo_rad)
+# Ángulo de la línea de referencia
+angulo_base = math.degrees(math.atan2(dy, dx))
+if angulo_base < 0:
+    angulo_base += 360
 
-if angulo_deg < 0:
-    angulo_deg += 360
+# Ángulo del vector de offset (perpendicular)
+angulo_offset = math.degrees(math.atan2(uy_perp, ux_perp))
+if angulo_offset < 0:
+    angulo_offset += 360
+
+# Diferencia angular absoluta
+diferencia = abs(angulo_base - angulo_offset)
+if diferencia > 180:
+    diferencia = 360 - diferencia  # aseguro ángulo agudo
+
+# ===========================================
+# Conversión a grados, minutos y segundos
+# ===========================================
+def a_sexagesimal(grados):
+    g = int(grados)
+    m = int((grados - g) * 60)
+    s = (grados - g - m/60) * 3600
+    return g, m, s
+
+g, m, s = a_sexagesimal(diferencia)
 
 # ===========================================
 # Resultados
 # ===========================================
-st.subheader("📍 Coordenadas y datos calculados")
+st.subheader("📍 Coordenadas y resultados")
 
-st.write(f"**Ángulo de la línea de referencia:** {angulo_deg:.2f}°")
-st.write("**Línea original:**")
-st.write(f"P1: ({x1:.3f}, {y1:.3f})")
-st.write(f"P2: ({x2:.3f}, {y2:.3f})")
+st.write(f"**Línea de referencia:** P1({x1:.3f}, {y1:.3f}) → P2({x2:.3f}, {y2:.3f})")
+st.write(f"**Línea offset ({lado}):** P1({P1_offset[0]:.3f}, {P1_offset[1]:.3f}) → P2({P2_offset[0]:.3f}, {P2_offset[1]:.3f})")
 
-st.write(f"**Línea offset ({lado}):**")
-st.write(f"P1: ({P1_offset[0]:.3f}, {P1_offset[1]:.3f})")
-st.write(f"P2: ({P2_offset[0]:.3f}, {P2_offset[1]:.3f})")
+st.markdown("---")
+st.write(f"**Ángulo de la línea base:** {angulo_base:.4f}°")
+st.write(f"**Ángulo del offset (perpendicular):** {angulo_offset:.4f}°")
+st.write(f"**Diferencia angular:** {diferencia:.6f}°  → {g}°{m:02d}′{s:05.2f}″")
+
+# Verificación de perpendicularidad
+if abs(diferencia - 90) < 0.0001:
+    st.success("✅ La línea de offset está a 90° exactos respecto a la línea base.")
+else:
+    st.warning(f"⚠️ La línea está desviada {abs(diferencia - 90):.6f}° de la perpendicular (90° exactos).")
 
 # ===========================================
-# Visualización
+# Visualización gráfica
 # ===========================================
-st.subheader("📊 Visualización de la línea y su offset")
+st.subheader("📊 Visualización")
 
 fig, ax = plt.subplots(figsize=(7, 7))
-
-# Línea de referencia
 ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea de referencia')
-
-# Línea offset (paralela)
 color = 'b' if "Izquierda" in lado else 'r'
-ax.plot([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], 
-        color=color, linestyle='--', linewidth=2, label=f'Offset {lado}')
+ax.plot([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], color=color, linestyle='--', linewidth=2, label=f'Offset {lado}')
+ax.scatter([x1, x2, P1_offset[0], P2_offset[0]], [y1, y2, P1_offset[1], P2_offset[1]], s=50)
 
-# Puntos
-ax.scatter([x1, x2], [y1, y2], color='black', s=50)
-ax.scatter([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], color=color, s=50)
-
-# Línea auxiliar para mostrar perpendicularidad
+# Líneas auxiliares para mostrar perpendicularidad
 ax.plot([x1, P1_offset[0]], [y1, P1_offset[1]], 'g:', linewidth=1)
 ax.plot([x2, P2_offset[0]], [y2, P2_offset[1]], 'g:', linewidth=1)
 
@@ -111,7 +124,6 @@ ax.set_xlabel("X")
 ax.set_ylabel("Y")
 ax.legend()
 ax.grid(True)
-
 st.pyplot(fig)
 
-st.caption("💡 La línea offset está perfectamente paralela y alineada a la línea de referencia.")
+st.caption("💡 El programa calcula si el offset está a 90° exactos respecto a la línea base.")
