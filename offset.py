@@ -1,9 +1,10 @@
 import streamlit as st
 import math
 import matplotlib.pyplot as plt
+from matplotlib.patches import Arc
 
 # =====================================
-# Función auxiliar
+# Funciones auxiliares
 # =====================================
 def a_sexagesimal(grados):
     g = int(grados)
@@ -12,24 +13,15 @@ def a_sexagesimal(grados):
     return g, m, s
 
 def distancia_punto_linea(x1, y1, x2, y2, xp, yp):
-    """Distancia perpendicular de un punto a una línea definida por P1-P2"""
-    num = abs((x2 - x1) * (y1 - yp) - (x1 - xp) * (y2 - y1))
+    num = abs((x2 - x1)*(y1 - yp) - (x1 - xp)*(y2 - y1))
     den = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
     return num / den
 
 # =====================================
-# Interfaz principal
+# Interfaz
 # =====================================
-st.title("📐 Offset, Verificación y Distancia Perpendicular")
-st.write("""
-Calcula una **línea offset** a partir de una línea base, y permite verificar un **punto de rectificación**, mostrando:
-- Si está **alineado o perpendicular (90°)** a la línea base y offset.
-- La **distancia perpendicular real (m)** hacia ambas líneas.
-""")
+st.title("📐 Offset con Verificación y Visualización de 90°")
 
-# =====================================
-# Entradas
-# =====================================
 st.sidebar.header("Datos de la línea base")
 
 x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001)
@@ -46,7 +38,7 @@ xp = st.sidebar.number_input("X del punto", value=992.420, step=0.001)
 yp = st.sidebar.number_input("Y del punto", value=958.290, step=0.001)
 
 # =====================================
-# Cálculos base
+# Cálculos
 # =====================================
 dx = x2 - x1
 dy = y2 - y1
@@ -55,7 +47,7 @@ L = math.sqrt(dx**2 + dy**2)
 ux_dir = dx / L
 uy_dir = dy / L
 
-# Vector perpendicular según el lado
+# Perpendicular según lado
 if "Izquierda" in lado:
     ux_perp = -uy_dir
     uy_perp = ux_dir
@@ -63,31 +55,16 @@ else:
     ux_perp = uy_dir
     uy_perp = -ux_dir
 
-# Puntos del offset
+# Coordenadas del offset
 offset_x = ux_perp * dist_offset
 offset_y = uy_perp * dist_offset
 
 P1_offset = (x1 + offset_x, y1 + offset_y)
 P2_offset = (x2 + offset_x, y2 + offset_y)
 
-# =====================================
-# Ángulos y diferencias
-# =====================================
+# Ángulos
 angulo_base = math.degrees(math.atan2(dy, dx)) % 360
 angulo_offset = math.degrees(math.atan2(uy_perp, ux_perp)) % 360
-angulo_punto = math.degrees(math.atan2(yp - y1, xp - x1)) % 360
-
-diff_base = abs(angulo_base - angulo_punto)
-if diff_base > 180:
-    diff_base = 360 - diff_base
-
-diff_offset = abs(angulo_offset - angulo_punto)
-if diff_offset > 180:
-    diff_offset = 360 - diff_offset
-
-# Conversión sexagesimal
-g1, m1, s1 = a_sexagesimal(diff_base)
-g2, m2, s2 = a_sexagesimal(diff_offset)
 
 # =====================================
 # Distancias perpendiculares
@@ -96,70 +73,57 @@ dist_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
 dist_offset_line = distancia_punto_linea(P1_offset[0], P1_offset[1], P2_offset[0], P2_offset[1], xp, yp)
 
 # =====================================
-# Resultados
+# Resultados de texto
 # =====================================
-st.subheader("📍 Coordenadas calculadas")
+st.subheader("📍 Coordenadas")
 st.write(f"**Línea base:** P1({x1:.3f}, {y1:.3f}) → P2({x2:.3f}, {y2:.3f})")
-st.write(f"**Línea offset ({lado}):** P1({P1_offset[0]:.3f}, {P1_offset[1]:.3f}) → P2({P2_offset[0]:.3f}, {P2_offset[1]:.3f})")
+st.write(f"**Línea offset:** P1′({P1_offset[0]:.3f}, {P1_offset[1]:.3f}) → P2′({P2_offset[0]:.3f}, {P2_offset[1]:.3f})")
 
-st.markdown("---")
-st.subheader("📏 Verificación del punto de rectificación")
-st.write(f"**Punto:** ({xp:.3f}, {yp:.3f})")
-
-st.write(f"- Diferencia con línea base: {diff_base:.6f}° → {g1}°{m1:02d}′{s1:05.2f}″")
-if abs(diff_base) < 0.0001:
-    st.success("✅ El punto está alineado con la línea base.")
-elif abs(diff_base - 90) < 0.0001:
-    st.success("✅ El punto está a 90° exactos respecto a la línea base.")
-else:
-    st.warning(f"⚠️ Desviación angular respecto a base: {diff_base:.4f}°")
-
-st.write(f"- Diferencia con línea offset: {diff_offset:.6f}° → {g2}°{m2:02d}′{s2:05.2f}″")
-if abs(diff_offset) < 0.0001:
-    st.info("✅ El punto está alineado con la línea offset.")
-elif abs(diff_offset - 90) < 0.0001:
-    st.info("✅ El punto está a 90° exactos respecto a la línea offset.")
-else:
-    st.warning(f"⚠️ Desviación angular respecto al offset: {diff_offset:.4f}°")
-
-st.markdown("---")
-st.subheader("📏 Distancia perpendicular del punto")
-st.write(f"- A la **línea base:** {dist_base:.3f} m")
-st.write(f"- A la **línea offset:** {dist_offset_line:.3f} m")
-
-if abs(dist_base - dist_offset) < 0.05:
-    st.success("✅ El punto está prácticamente sobre la línea offset.")
-elif dist_base < dist_offset:
-    st.warning("📉 El punto está **antes** del offset (más cerca de la línea base).")
-else:
-    st.warning("📈 El punto está **más allá** del offset (pasado los 10 m).")
+st.subheader("📏 Distancias perpendiculares")
+st.write(f"- A la línea base: {dist_base:.3f} m")
+st.write(f"- A la línea offset: {dist_offset_line:.3f} m")
 
 # =====================================
-# Visualización gráfica
+# Gráfico
 # =====================================
-st.subheader("📊 Visualización gráfica")
-
-fig, ax = plt.subplots(figsize=(7, 7))
+fig, ax = plt.subplots(figsize=(8, 8))
 
 # Línea base
 ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea base')
+ax.text(x1, y1, f"P1\n({x1:.2f}, {y1:.2f})", fontsize=8, ha='right', va='top', color='black')
+ax.text(x2, y2, f"P2\n({x2:.2f}, {y2:.2f})", fontsize=8, ha='left', va='bottom', color='black')
 
 # Línea offset
 color = 'r' if "Derecha" in lado else 'b'
 ax.plot([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], color=color, linestyle='--', linewidth=2, label='Línea offset')
+ax.text(P1_offset[0], P1_offset[1], f"P1′\n({P1_offset[0]:.2f}, {P1_offset[1]:.2f})", fontsize=8, ha='right', va='top', color=color)
+ax.text(P2_offset[0], P2_offset[1], f"P2′\n({P2_offset[0]:.2f}, {P2_offset[1]:.2f})", fontsize=8, ha='left', va='bottom', color=color)
 
 # Punto de verificación
-ax.scatter(xp, yp, color='green', s=80, marker='o', label='Punto de verificación')
+ax.scatter(xp, yp, color='green', s=80, marker='o', label='Punto verificación')
+ax.text(xp, yp, f"P\n({xp:.2f}, {yp:.2f})", fontsize=8, ha='left', va='bottom', color='green')
 
-# Línea perpendicular desde punto a base
-ax.plot([xp, xp], [yp, yp], 'g:')
-ax.plot([x1, xp], [y1, yp], 'g:', linewidth=1)
+# Arco de 90°
+# Punto de origen del ángulo: P1
+radio = dist_offset * 0.6
+start_angle = angulo_base
+end_angle = angulo_base + 90 if "Izquierda" in lado else angulo_base - 90
+arc = Arc((x1, y1), width=radio, height=radio, angle=0,
+          theta1=min(start_angle, end_angle),
+          theta2=max(start_angle, end_angle),
+          color='orange', lw=2)
+ax.add_patch(arc)
+ax.text(x1 + ux_dir * radio * 0.6 + ux_perp * radio * 0.6,
+        y1 + uy_dir * radio * 0.6 + uy_perp * radio * 0.6,
+        "90°", fontsize=10, color='orange', fontweight='bold')
 
+# Límites del gráfico
 ax.set_aspect('equal', adjustable='datalim')
 ax.set_xlabel("X")
 ax.set_ylabel("Y")
-ax.legend()
 ax.grid(True)
+ax.legend()
+
 st.pyplot(fig)
 
-st.caption("💡 Se muestran los ángulos, alineaciones y distancias perpendiculares desde el punto hacia las líneas base y offset.")
+st.caption("💡 Se muestran las coordenadas de los puntos P1, P2, P1′, P2′ y el ángulo de 90° entre la línea base y la línea offset.")
