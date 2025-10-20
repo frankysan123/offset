@@ -1,6 +1,7 @@
 import streamlit as st
 import math
 import matplotlib.pyplot as plt
+from matplotlib.patches import Arc
 
 # =====================================
 # Funciones auxiliares
@@ -14,15 +15,12 @@ def angulo_entre_vectores(v1, v2):
     dot = v1[0]*v2[0] + v1[1]*v2[1]
     mag1 = math.sqrt(v1[0]**2 + v1[1]**2)
     mag2 = math.sqrt(v2[0]**2 + v2[1]**2)
+    if mag1 == 0 or mag2 == 0:
+        return 0
     cosang = dot / (mag1 * mag2)
-    ang = math.degrees(math.acos(max(min(cosang, 1), -1)))
+    cosang = max(min(cosang, 1), -1)
+    ang = math.degrees(math.acos(cosang))
     return ang
-
-def formato_grados_minutos_segundos(grados):
-    g = int(grados)
-    m = int((grados - g) * 60)
-    s = (grados - g - m/60) * 3600
-    return f"{g}° {m}′ {s:.3f}″"
 
 def mostrar_3_decimales(valor):
     return f"{valor:.3f}"
@@ -30,7 +28,7 @@ def mostrar_3_decimales(valor):
 # =====================================
 # Interfaz principal
 # =====================================
-st.title("📐 Offset y Perpendicularidad con Puntos Opcionales")
+st.title("📐 Offset y Ángulo Interno Visual (Tipo AutoCAD)")
 
 # --- Línea base ---
 st.sidebar.header("Línea base")
@@ -87,65 +85,86 @@ v_offset = (P2_offset[0]-P1_offset[0], P2_offset[1]-P1_offset[1])
 angulo_entre = angulo_entre_vectores(v_base, v_offset)
 
 # =====================================
-# Mostrar resultados
+# Mostrar resultados generales
 # =====================================
-st.subheader("📏 Resultados")
+st.subheader("📏 Resultados generales")
+
 st.write(f"**Línea base:** P1({mostrar_3_decimales(x1)}, {mostrar_3_decimales(y1)}) → P2({mostrar_3_decimales(x2)}, {mostrar_3_decimales(y2)})")
 st.write(f"**Línea offset ({lado}):** P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_decimales(P1_offset[1])}) → P2′({mostrar_3_decimales(P2_offset[0])}, {mostrar_3_decimales(P2_offset[1])})")
-st.write(f"Ángulo entre base y offset: {formato_grados_minutos_segundos(angulo_entre)}")
+
+ang_interno = abs(90 - angulo_entre)
+st.write(f"**Ángulo interno entre base y offset:** {angulo_entre:.2f}°")
+if abs(angulo_entre - 90) > 0.01:
+    st.warning(f"⚠️ Desviación de {ang_interno:.2f}° respecto a 90°")
+else:
+    st.success("✅ Ángulo interno correcto (90°)")
 
 # =====================================
-# Si hay puntos, calcular análisis
+# Puntos de verificación (si hay)
 # =====================================
 resultados = []
 if len(puntos) > 0:
-    tolerancia = 0.1
-    for (xp, yp) in puntos:
+    st.markdown("---")
+    st.subheader("📍 Puntos de verificación")
+
+    for idx, (xp, yp) in enumerate(puntos):
         v_point_base = (xp - x1, yp - y1)
         ang_base = angulo_entre_vectores(v_base, v_point_base)
-        perp_base = abs(ang_base - 90) <= tolerancia
-
         v_point_offset = (xp - P1_offset[0], yp - P1_offset[1])
         ang_offset = angulo_entre_vectores(v_offset, v_point_offset)
-        perp_offset = abs(ang_offset - 90) <= tolerancia
-
         dist_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
         dist_offset_line = distancia_punto_linea(P1_offset[0], P1_offset[1], P2_offset[0], P2_offset[1], xp, yp)
 
         resultados.append({
             "coord": (xp, yp),
             "ang_base": ang_base,
-            "perp_base": perp_base,
             "dist_base": dist_base,
             "ang_offset": ang_offset,
-            "perp_offset": perp_offset,
             "dist_offset": dist_offset_line
         })
 
-    st.markdown("---")
-    st.subheader("📍 Puntos de verificación")
-    for idx, r in enumerate(resultados):
-        st.write(f"Punto {idx+1}: ({mostrar_3_decimales(r['coord'][0])}, {mostrar_3_decimales(r['coord'][1])})")
-        st.write(f"- Ángulo con base: {formato_grados_minutos_segundos(r['ang_base'])} | Distancia: {mostrar_3_decimales(r['dist_base'])} m")
-        st.write(f"- Ángulo con offset: {formato_grados_minutos_segundos(r['ang_offset'])} | Distancia: {mostrar_3_decimales(r['dist_offset'])} m")
+        st.write(f"**Punto {idx+1}: ({mostrar_3_decimales(xp)}, {mostrar_3_decimales(yp)})**")
+        st.write(f"- Ángulo con base: {ang_base:.2f}° | Distancia: {mostrar_3_decimales(dist_base)} m")
+        st.write(f"- Ángulo con offset: {ang_offset:.2f}° | Distancia: {mostrar_3_decimales(dist_offset_line)} m")
 
 # =====================================
-# Gráfico (siempre visible)
+# Gráfico (con arco de ángulo)
 # =====================================
 fig, ax = plt.subplots(figsize=(8, 8))
 
-# Dibuja siempre base y offset
+# Dibujar línea base y offset
 ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea base')
 ax.plot([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]],
         color='b' if "Izquierda" in lado else 'r', linestyle='--', linewidth=2, label='Línea offset')
 
-# Etiquetas
-ax.text(x1, y1, "P1", fontsize=9)
-ax.text(x2, y2, "P2", fontsize=9)
-ax.text(P1_offset[0], P1_offset[1], "P1′", fontsize=9)
-ax.text(P2_offset[0], P2_offset[1], "P2′", fontsize=9)
+# Etiquetas de puntos principales
+ax.text(x1, y1, "P1", fontsize=9, color='black')
+ax.text(x2, y2, "P2", fontsize=9, color='black')
+ax.text(P1_offset[0], P1_offset[1], "P1′", fontsize=9, color='blue' if "Izquierda" in lado else 'red')
+ax.text(P2_offset[0], P2_offset[1], "P2′", fontsize=9, color='blue' if "Izquierda" in lado else 'red')
 
-# Dibuja puntos si existen
+# --- Dibuja el arco del ángulo entre base y offset ---
+radio_arco = L * 0.2  # tamaño relativo al largo de la línea base
+ang_base_deg = math.degrees(math.atan2(dy, dx))
+ang_offset_deg = math.degrees(math.atan2(v_offset[1], v_offset[0]))
+
+start_angle = ang_base_deg
+end_angle = ang_offset_deg
+if end_angle < start_angle:
+    start_angle, end_angle = end_angle, start_angle
+
+arc = Arc((x1, y1), width=radio_arco, height=radio_arco,
+          angle=0, theta1=start_angle, theta2=end_angle, color='orange', linewidth=2)
+ax.add_patch(arc)
+
+# Colocar texto del ángulo en el gráfico
+ang_text = f"{angulo_entre:.2f}°"
+mid_angle_rad = math.radians((start_angle + end_angle) / 2)
+x_text = x1 + (radio_arco * 0.7) * math.cos(mid_angle_rad)
+y_text = y1 + (radio_arco * 0.7) * math.sin(mid_angle_rad)
+ax.text(x_text, y_text, ang_text, fontsize=10, color='orange', fontweight='bold')
+
+# Puntos de verificación
 if len(resultados) > 0:
     for idx, r in enumerate(resultados):
         xp, yp = r["coord"]
@@ -159,4 +178,4 @@ ax.grid(True)
 ax.legend()
 st.pyplot(fig)
 
-st.caption("💡 El offset se muestra siempre. Los puntos son opcionales para verificar perpendicularidad.")
+st.caption("💡 Ahora el gráfico incluye un arco de ángulo entre la línea base y el offset.")
