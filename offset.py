@@ -147,7 +147,10 @@ st.write(f"**Offset:** P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_dec
 angulo = angulo_entre_vectores((x2 - x1, y2 - y1), (P2_offset[0] - P1_offset[0], P2_offset[1] - P1_offset[1]))
 angulo = 90.0 if abs(angulo - 90) < 0.01 else angulo
 st.write(f"**Ángulo interno:** {angulo:.3f}°")
-st.success("Ángulo paralelo: 90.000°") if abs(angulo - 90) < 0.01 else st.warning(f"Desviación: {abs(angulo-90):.3f}°")
+if abs(angulo - 90) < 0.01:
+    st.success("Ángulo paralelo: 90.000°")
+else:
+    st.warning(f"Desviación: {abs(angulo - 90):.3f}°")
 
 if puntos:
     st.markdown("---")
