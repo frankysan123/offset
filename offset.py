@@ -1,21 +1,28 @@
 import streamlit as st
 import math
 import matplotlib.pyplot as plt
-from matplotlib.patches import Arc, FancyArrowPatch
+from matplotlib.patches import Arc
+import hashlib
 
 # =====================================
-# Funciones auxiliares
+# Configuración de página
+# =====================================
+st.set_page_config(page_title="Offset CAD", layout="centered")
+st.title("Offset y Ángulo Interno Visual (Estilo AutoCAD)")
+
+# =====================================
+# Funciones auxiliares (con cache si aplica)
 # =====================================
 def distancia_punto_linea(x1, y1, x2, y2, xp, yp):
     num = abs((x2 - x1)*(y1 - yp) - (x1 - xp)*(y2 - y1))
     den = math.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-    return num / den if den != 0 else 0
+    return num / den if den > 1e-10 else 0
 
 def angulo_entre_vectores(v1, v2):
     dot = v1[0]*v2[0] + v1[1]*v2[1]
     mag1 = math.sqrt(v1[0]**2 + v1[1]**2)
     mag2 = math.sqrt(v2[0]**2 + v2[1]**2)
-    if mag1 == 0 or mag2 == 0:
+    if mag1 < 1e-10 or mag2 < 1e-10:
         return 0
     cosang = max(min(dot / (mag1 * mag2), 1), -1)
     return math.degrees(math.acos(cosang))
@@ -23,196 +30,164 @@ def angulo_entre_vectores(v1, v2):
 def mostrar_3_decimales(valor):
     return f"{valor:.3f}"
 
-def agregar_flecha(ax, x, y, dx, dy, color, label=None):
-    """Agrega una flecha direccional en la línea"""
-    ax.annotate('', xy=(x + dx, y + dy), xytext=(x, y),
-                arrowprops=dict(arrowstyle='->', color=color, lw=1.5),
-                zorder=3)
-    if label:
-        mid_x = x + dx * 0.5
-        mid_y = y + dy * 0.5
-        ax.text(mid_x, mid_y, label, color=color, fontsize=8, ha='center', va='center',
-                bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.7, edgecolor=color))
+# =====================================
+# Cache para el gráfico (solo se regenera si cambian los datos clave)
+# =====================================
+@st.cache_data(show_spinner=False)
+def generar_grafico_cached(_datos_hash, x1, y1, x2, y2, P1o, P2o, puntos_verif, lado_str, L):
+    fig, ax = plt.subplots(figsize=(10, 8))
+
+    # Líneas
+    ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea base', zorder=5)
+    color_offset = 'blue' if "Izquierda" in lado_str else 'red'
+    ax.plot([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, linestyle='--', linewidth=2,
+            label=f'Offset ({lado_str})', zorder=5)
+
+    # Flechas
+    dx, dy = x2 - x1, y2 - y1
+    scale = 0.3
+    ax.annotate('', xy=(x1 + dx*scale, y1 + dy*scale), xytext=(x1, y1),
+                arrowprops=dict(arrowstyle='->', color='black', lw=1.5))
+    ax.annotate('', xy=(P1o[0] + dx*scale, P1o[1] + dy*scale), xytext=(P1o[0], P1o[1]),
+                arrowprops=dict(arrowstyle='->', color=color_offset, lw=1.5))
+
+    # Etiquetas
+    ax.text(x1, y1, "  P1", fontsize=10, color='black', ha='left', va='bottom')
+    ax.text(x2, y2, "  P2", fontsize=10, color='black', ha='left', va='bottom')
+    ax.text(P1o[0], P1o[1], "  P1′", fontsize=10, color=color_offset, ha='left', va='bottom')
+    ax.text(P2o[0], P2o[1], "  P2′", fontsize=10, color=color_offset, ha='left', va='bottom')
+
+    # Arco de 90°
+    radio = L * 0.25
+    dx_perp = P1o[0] - x1
+    dy_perp = P1o[1] - y1
+    ang_base = math.degrees(math.atan2(dy, dx))
+    ang_perp = math.degrees(math.atan2(dy_perp, dx_perp))
+    diff = (ang_perp - ang_base + 180) % 360 - 180
+    if "Derecha" in lado_str:
+        diff = -abs(diff) if diff > 0 else diff
+    theta2 = ang_base + diff
+
+    arc = Arc((x1, y1), radio*2, radio*2, angle=0, theta1=ang_base, theta2=theta2,
+              color='orange', linewidth=2.5, zorder=4)
+    ax.add_patch(arc)
+
+    mid_angle = math.radians(ang_base + diff/2)
+    x_text = x1 + (radio * 0.7) * math.cos(mid_angle)
+    y_text = y1 + (radio * 0.7) * math.sin(mid_angle)
+    ax.text(x_text, y_text, "90°", fontsize=11, color='orange', fontweight='bold',
+            ha='center', va='center', bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
+
+    # Puntos de verificación
+    if puntos_verif:
+        for i, (xp, yp) in enumerate(puntos_verif):
+            ax.scatter(xp, yp, color='green', s=100, zorder=6, edgecolors='black', linewidth=0.5)
+            ax.text(xp, yp, f"  P{i+1}", fontsize=9, color='green', ha='left', va='bottom')
+
+    ax.set_aspect('equal', adjustable='datalim')
+    ax.grid(True, alpha=0.3)
+    ax.set_xlabel("X (m)")
+    ax.set_ylabel("Y (m)")
+    ax.legend(loc='upper left')
+    ax.set_title("Offset paralelo - Ángulo 90°", pad=15)
+
+    return fig
 
 # =====================================
-# Interfaz principal
+# Interfaz con session_state para evitar recargas
 # =====================================
-st.title("📐 Offset y Ángulo Interno Visual (Estilo AutoCAD)")
+if 'puntos' not in st.session_state:
+    st.session_state.puntos = []
+if 'num_puntos' not in st.session_state:
+    st.session_state.num_puntos = 0
 
 # --- Línea base ---
 st.sidebar.header("Línea base")
-x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001, format="%.3f")
-y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, step=0.001, format="%.3f")
-x2 = st.sidebar.number_input("X2 (P2)", value=997.622, step=0.001, format="%.3f")
-y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, step=0.001, format="%.3f")
+x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001, format="%.3f", key="x1")
+y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, step=0.001, format="%.3f", key="y1")
+x2 = st.sidebar.number_input("X2 (P2)", value=997.622, step=0.001, format="%.3f", key="x2")
+y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, step=0.001, format="%.3f", key="y2")
 
 # --- Offset ---
 st.sidebar.header("Offset")
-dist_offset = st.sidebar.number_input("Distancia del offset (m)", value=10.0, step=0.001, format="%.3f")
-lado = st.sidebar.radio("Lado del offset", ("Izquierda (Antihorario)", "Derecha (Horario)"))
+dist_offset = st.sidebar.number_input("Distancia (m)", value=10.0, step=0.001, format="%.3f", key="dist")
+lado = st.sidebar.radio("Lado", ("Izquierda (Antihorario)", "Derecha (Horario)"), key="lado")
 
-# --- Puntos de verificación ---
-st.sidebar.header("Puntos de verificación (opcional)")
-num_puntos = st.sidebar.number_input("Cantidad de puntos", min_value=0, max_value=5, value=0, step=1)
+# --- Puntos de verificación (con control manual) ---
+st.sidebar.header("Puntos de verificación")
+n = st.sidebar.number_input("Cantidad", min_value=0, max_value=5, value=st.session_state.num_puntos, step=1, key="num_puntos_input")
+
+if n != st.session_state.num_puntos:
+    # Ajustar lista de puntos
+    if n > st.session_state.num_puntos:
+        st.session_state.puntos.extend([(0.0, 0.0)] * (n - st.session_state.num_puntos))
+    else:
+        st.session_state.puntos = st.session_state.puntos[:n]
+    st.session_state.num_puntos = n
 
 puntos = []
-if num_puntos > 0:
-    for i in range(num_puntos):
-        st.sidebar.markdown(f"**Punto {i+1}**")
-        xp_i = st.sidebar.number_input(f"X{i+1}", value=0.000, key=f"xp_{i}", step=0.001, format="%.3f")
-        yp_i = st.sidebar.number_input(f"Y{i+1}", value=0.000, key=f"yp_{i}", step=0.001, format="%.3f")
-        puntos.append((xp_i, yp_i))
+for i in range(st.session_state.num_puntos):
+    col1, col2 = st.sidebar.columns(2)
+    with col1:
+        xp = st.number_input(f"X{i+1}", value=st.session_state.puntos[i][0], step=0.001, format="%.3f", key=f"xp_{i}")
+    with col2:
+        yp = st.number_input(f"Y{i+1}", value=st.session_state.puntos[i][1], step=0.001, format="%.3f", key=f"yp_{i}")
+    puntos.append((xp, yp))
+    st.session_state.puntos[i] = (xp, yp)
 
 # =====================================
-# Cálculos base y offset
+# Cálculos (solo si cambian datos clave)
 # =====================================
 dx = x2 - x1
 dy = y2 - y1
 L = math.sqrt(dx**2 + dy**2)
 
-if L == 0:
-    st.warning("⚠️ Ingresa dos puntos distintos para la línea base.")
+if L < 1e-6:
+    st.warning("Ingresa dos puntos distintos.")
     st.stop()
 
-# Vector unitario dirección
 ux_dir = dx / L
 uy_dir = dy / L
 
-# Vector perpendicular unitario (90° exacto)
-if "Izquierda" in lado:
-    ux_perp = -uy_dir
-    uy_perp = ux_dir
-else:
-    ux_perp = uy_dir
-    uy_perp = -ux_dir
+ux_perp = -uy_dir if "Izquierda" in lado else uy_dir
+uy_perp = ux_dir if "Izquierda" in lado else -ux_dir
 
-# Puntos offset
-offset_x = ux_perp * dist_offset
-offset_y = uy_perp * dist_offset
-P1_offset = (x1 + offset_x, y1 + offset_y)
-P2_offset = (x2 + offset_x, y2 + offset_y)
+P1_offset = (x1 + ux_perp * dist_offset, y1 + uy_perp * dist_offset)
+P2_offset = (x2 + ux_perp * dist_offset, y2 + uy_perp * dist_offset)
 
-# Vectores
-v_base = (dx, dy)
-v_offset = (P2_offset[0] - P1_offset[0], P2_offset[1] - P1_offset[1])
-
-# Ángulo entre base y offset (debe ser ~90°)
-angulo_entre = angulo_entre_vectores(v_base, v_offset)
+# Hash para cache del gráfico
+datos_clave = (x1, y1, x2, y2, dist_offset, lado, tuple(tuple(p) for p in puntos))
+hash_datos = hashlib.md5(str(datos_clave).encode()).hexdigest()
 
 # =====================================
-# Mostrar resultados
+# Resultados
 # =====================================
-st.subheader("📏 Resultados generales")
-st.write(f"**Línea base:** P1({mostrar_3_decimales(x1)}, {mostrar_3_decimales(y1)}) → P2({mostrar_3_decimales(x2)}, {mostrar_3_decimales(y2)})")
-st.write(f"**Línea offset ({lado}):** P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_decimales(P1_offset[1])}) → P2′({mostrar_3_decimales(P2_offset[0])}, {mostrar_3_decimales(P2_offset[1])})")
+st.subheader("Resultados")
+st.write(f"**Base:** P1({mostrar_3_decimales(x1)}, {mostrar_3_decimales(y1)}) → P2({mostrar_3_decimales(x2)}, {mostrar_3_decimales(y2)})")
+st.write(f"**Offset:** P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_decimales(P1_offset[1])}) → P2′({mostrar_3_decimales(P2_offset[0])}, {mostrar_3_decimales(P2_offset[1])})")
 
-# Forzamos 90° con redondeo
-if abs(angulo_entre - 90) < 1e-10:
-    angulo_entre = 90.0
-
-st.write(f"**Ángulo interno:** {angulo_entre:.3f}°")
-if abs(angulo_entre - 90) > 0.01:
-    st.warning(f"⚠️ Desviación de {abs(angulo_entre - 90):.3f}° (posible error numérico)")
-else:
-    st.success("✅ Ángulo interno correcto: 90.000°")
+angulo = angulo_entre_vectores((dx, dy), (P2_offset[0]-P1_offset[0], P2_offset[1]-P1_offset[1]))
+angulo = 90.0 if abs(angulo - 90) < 0.01 else angulo
+st.write(f"**Ángulo interno:** {angulo:.3f}°")
+st.success("Ángulo paralelo: 90.000°") if abs(angulo - 90) < 0.01 else st.warning(f"Desviación: {abs(angulo-90):.3f}°")
 
 # =====================================
 # Puntos de verificación
 # =====================================
-resultados = []
 if puntos:
     st.markdown("---")
-    st.subheader("📍 Puntos de verificación")
-    for idx, (xp, yp) in enumerate(puntos):
-        dist_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
-        dist_offset = distancia_punto_linea(P1_offset[0], P1_offset[1], P2_offset[0], P2_offset[1], xp, yp)
-        
-        # Ángulo con la línea base
-        v_to_point = (xp - x1, yp - y1)
-        ang_base = angulo_entre_vectores(v_base, v_to_point)
-        
-        resultados.append({
-            "coord": (xp, yp),
-            "dist_base": dist_base,
-            "dist_offset": dist_offset,
-            "ang_base": ang_base
-        })
-
-        st.write(f"**Punto {idx+1}: ({mostrar_3_decimales(xp)}, {mostrar_3_decimales(yp)})**")
-        st.write(f"- Distancia a base: {mostrar_3_decimales(dist_base)} m")
-        st.write(f"- Distancia a offset: {mostrar_3_decimales(dist_offset)} m")
+    st.subheader("Puntos de verificación")
+    for i, (xp, yp) in enumerate(puntos):
+        d_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
+        d_offset = distancia_punto_linea(P1_offset[0], P1_offset[1], P2_offset[0], P2_offset[1], xp, yp)
+        st.write(f"**P{i+1}:** ({mostrar_3_decimales(xp)}, {mostrar_3_decimales(yp)})")
+        st.write(f"→ Dist. base: {mostrar_3_decimales(d_base)} m | Dist. offset: {mostrar_3_decimales(d_offset)} m")
 
 # =====================================
-# Gráfico mejorado
+# Gráfico con cache
 # =====================================
-fig, ax = plt.subplots(figsize=(10, 8))
+with st.spinner("Generando gráfico..."):
+    fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, puntos, lado, L)
+    st.pyplot(fig, use_container_width=True)
 
-# Líneas
-ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea base', zorder=5)
-color_offset = 'blue' if "Izquierda" in lado else 'red'
-ax.plot([P1_offset[0], P2_offset[0]], [P1_offset[1], P2_offset[1]], 
-        color=color_offset, linestyle='--', linewidth=2, label=f'Offset ({lado})', zorder=5)
-
-# Flechas direccionales
-agregar_flecha(ax, x1, y1, dx*0.3, dy*0.3, 'black')
-agregar_flecha(ax, P1_offset[0], P1_offset[1], dx*0.3, dy*0.3, color_offset)
-
-# Etiquetas de puntos
-ax.text(x1, y1, "  P1", fontsize=10, color='black', ha='left', va='bottom')
-ax.text(x2, y2, "  P2", fontsize=10, color='black', ha='left', va='bottom')
-ax.text(P1_offset[0], P1_offset[1], "  P1′", fontsize=10, color=color_offset, ha='left', va='bottom')
-ax.text(P2_offset[0], P2_offset[1], "  P2′", fontsize=10, color=color_offset, ha='left', va='bottom')
-
-# --- Arco de 90° en el lado correcto ---
-radio_arco = L * 0.25
-centro_arco = (x1, y1)  # desde P1
-
-# Dirección del offset (hacia afuera)
-dx_perp = P1_offset[0] - x1
-dy_perp = P1_offset[1] - y1
-
-# Ángulo de la base y del offset
-ang_base = math.degrees(math.atan2(dy, dx))
-ang_perp = math.degrees(math.atan2(dy_perp, dx_perp))
-
-# Ajustar dirección del arco según lado
-theta1 = ang_base
-theta2 = ang_perp
-
-# Asegurar que el arco sea de 90° en sentido correcto
-diff = (theta2 - theta1 + 180) % 360 - 180
-if "Derecha" in lado:
-    diff = -abs(diff) if diff < 0 else -diff  # invertir sentido
-
-theta2 = theta1 + diff
-
-# Dibujar arco
-arc = Arc(centro_arco, radio_arco*2, radio_arco*2, angle=0,
-          theta1=theta1, theta2=theta2, color='orange', linewidth=2.5, zorder=4)
-ax.add_patch(arc)
-
-# Texto del ángulo
-mid_angle = math.radians(theta1 + (theta2 - theta1)/2)
-x_text = centro_arco[0] + (radio_arco * 0.7) * math.cos(mid_angle)
-y_text = centro_arco[1] + (radio_arco * 0.7) * math.sin(mid_angle)
-ax.text(x_text, y_text, "90°", fontsize=11, color='orange', fontweight='bold',
-        ha='center', va='center', bbox=dict(boxstyle="round,pad=0.3", facecolor='white', alpha=0.8))
-
-# Puntos de verificación
-if resultados:
-    for idx, r in enumerate(resultados):
-        xp, yp = r["coord"]
-        ax.scatter(xp, yp, color='green', s=100, zorder=6, edgecolors='black', linewidth=0.5)
-        ax.text(xp, yp, f"  P{idx+1}", fontsize=9, color='green', ha='left', va='bottom')
-
-# Configuración del gráfico
-ax.set_aspect('equal', adjustable='datalim')
-ax.grid(True, alpha=0.3)
-ax.set_xlabel("X (metros)")
-ax.set_ylabel("Y (metros)")
-ax.legend(loc='upper left')
-ax.set_title("Offset paralelo con ángulo interno de 90°", pad=20)
-
-st.pyplot(fig)
-
-st.caption("✨ **Mejorado:** Arco de 90° en lado correcto, flechas, etiquetas y precisión numérica.")
+st.caption("Optimizado: Gráfico en caché, sin recargas innecesarias.")
