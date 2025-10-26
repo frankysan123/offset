@@ -48,19 +48,19 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, puntos_verif, lado_s
     color_offset = 'blue' if "Izquierda" in lado_str else 'red'
     ax.plot([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, linestyle='--', linewidth=1.5,
             label=f'Offset ({lado_str})', zorder=5)
-    
+
     dx, dy = x2 - x1, y2 - y1
     scale = 0.3
     ax.annotate('', xy=(x1 + dx*scale, y1 + dy*scale), xytext=(x1, y1),
                 arrowprops=dict(arrowstyle='->', color='black', lw=1))
     ax.annotate('', xy=(P1o[0] + dx*scale, P1o[1] + dy*scale), xytext=(P1o[0], P1o[1]),
                 arrowprops=dict(arrowstyle='->', color=color_offset, lw=1))
-    
+
     ax.text(x1, y1, "  P1", fontsize=9, color='black', ha='left', va='bottom')
     ax.text(x2, y2, "  P2", fontsize=9, color='black', ha='left', va='bottom')
     ax.text(P1o[0], P1o[1], "  P1′", fontsize=9, color=color_offset, ha='left', va='bottom')
     ax.text(P2o[0], P2o[1], "  P2′", fontsize=9, color=color_offset, ha='left', va='bottom')
-    
+
     radio = L * 0.2
     dx_perp = P1o[0] - x1
     dy_perp = P1o[1] - y1
@@ -70,21 +70,21 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, puntos_verif, lado_s
     if "Derecha" in lado_str:
         diff = -abs(diff) if diff > 0 else diff
     theta2 = ang_base + diff
-    
+
     arc = Arc((x1, y1), radio*2, radio*2, angle=0, theta1=ang_base, theta2=theta2,
               color='orange', linewidth=1.5, zorder=4)
     ax.add_patch(arc)
-    
+
     mid_angle = math.radians(ang_base + diff/2)
     x_text = x1 + (radio * 0.7) * math.cos(mid_angle)
     y_text = y1 + (radio * 0.7) * math.sin(mid_angle)
     ax.text(x_text, y_text, "90°", fontsize=9, color='orange', ha='center', va='center')
-    
+
     if puntos_verif:
         for i, (xp, yp) in enumerate(puntos_verif):
             ax.scatter(xp, yp, color='green', s=80, zorder=6, edgecolors='black', linewidth=0.5)
             ax.text(xp, yp, f"  P{i+1}", fontsize=8, color='green', ha='left', va='bottom')
-    
+
     ax.set_aspect('equal', adjustable='datalim')
     ax.grid(True, alpha=0.2)
     ax.set_xlabel("X (m)")
@@ -141,8 +141,8 @@ hash_datos = hashlib.md5(str(datos_clave).encode()).hexdigest()
 
 # Resultados
 st.subheader("Resultados")
-st.write(f"**Base:** P1({mostrar_3_decimales(x1)}, {mostrar_3_decimales(y1)}) → P2({mostrar_3_decimales(x2)}, {mostrar_3_decimales(y2)})")
-st.write(f"**Offset:** P1′({mostrar_3_decimales(P1_offset[0])}, {mostrar_3_decimales(P1_offset[1])}) → P2′({mostrar_3_decimales(P2_offset[0])}, {mostrar_3_decimales(P2_offset[1])})")
+st.write(f"**Base:** P1(X={mostrar_3_decimales(x1)}, Y={mostrar_3_decimales(y1)}) → P2(X={mostrar_3_decimales(x2)}, Y={mostrar_3_decimales(y2)})")
+st.write(f"**Offset:** P1′(X={mostrar_3_decimales(P1_offset[0])}, Y={mostrar_3_decimales(P1_offset[1])}) → P2′(X={mostrar_3_decimales(P2_offset[0])}, Y={mostrar_3_decimales(P2_offset[1])})")
 
 angulo = angulo_entre_vectores((x2 - x1, y2 - y1), (P2_offset[0] - P1_offset[0], P2_offset[1] - P1_offset[1]))
 angulo = 90.0 if abs(angulo - 90) < 0.01 else angulo
@@ -158,7 +158,7 @@ if puntos:
     for i, (xp, yp) in enumerate(puntos):
         d_base = distancia_punto_linea(x1, y1, x2, y2, xp, yp)
         d_offset = distancia_punto_linea(P1_offset[0], P1_offset[1], P2_offset[0], P2_offset[1], xp, yp)
-        st.write(f"**P{i+1}:** ({mostrar_3_decimales(xp)}, {mostrar_3_decimales(yp)})")
+        st.write(f"**P{i+1}:** (X={mostrar_3_decimales(xp)}, Y={mostrar_3_decimales(yp)})")
         st.write(f"→ Dist. base: {mostrar_3_decimales(d_base)} m | Dist. offset: {mostrar_3_decimales(d_offset)} m")
 
 # Gráfico
