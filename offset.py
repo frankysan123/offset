@@ -18,11 +18,7 @@ def grados_a_dms(grados):
     signo = "-" if grados < 0 else ""
     return f"{signo}{g}° {m:02d}' {s:05.2f}\""
 
-def desviacion_lineal_mm(distancia_m, segundos):
-    """Convierte desviación angular (en segundos) a desviación lineal (en mm)"""
-    rad = segundos * (math.pi / (180 * 3600))
-    return distancia_m * math.tan(rad) * 1000
-
+@st.cache_data
 def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
     """Calcula un offset perpendicular exacto (90°) respecto a la línea base"""
     dx = x2 - x1
@@ -48,19 +44,8 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
     P2_offset = (x2 + ux_perp * dist_offset, y2 + uy_perp * dist_offset)
     return P1_offset, P2_offset, L
 
-def calcular_angulo_real(x1, y1, x2, y2, P1o, P2o):
-    """Calcula el ángulo real entre la línea base y el offset (en grados decimales)"""
-    v_base = (x2 - x1, y2 - y1)
-    v_offset = (P2o[0] - P1o[0], P2o[1] - P1o[1])
-    dot = v_base[0]*v_offset[0] + v_base[1]*v_offset[1]
-    mag_base = math.sqrt(v_base[0]**2 + v_base[1]**2)
-    mag_offset = math.sqrt(v_offset[0]**2 + v_offset[1]**2)
-    if mag_base * mag_offset == 0:
-        return 0
-    cos_theta = max(min(dot / (mag_base * mag_offset), 1), -1)
-    return math.degrees(math.acos(cos_theta))
-
-def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, angulo_real, desviacion_mm):
+@st.cache_data(show_spinner=False)
+def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L):
     fig, ax = plt.subplots(figsize=(8, 6))
 
     # Línea base
@@ -85,7 +70,7 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, angulo_
     ax.text(P1o[0], P1o[1], "  P1′", fontsize=9, color=color_offset)
     ax.text(P2o[0], P2o[1], "  P2′", fontsize=9, color=color_offset)
 
-    # Arco de 90° ± desviación
+    # Arco de 90°
     radio = L * 0.2
     ang_base = math.degrees(math.atan2(dy, dx))
     theta2 = ang_base + 90 if "Izquierda" in lado_str else ang_base - 90
@@ -94,13 +79,12 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, angulo_
               color='orange', linewidth=1.5)
     ax.add_patch(arc)
 
-    # Texto del ángulo y desviación
+    # Texto del ángulo (exacto 90°)
     mid_angle = math.radians((ang_base + theta2) / 2)
     x_text = x1 + (radio * 0.8) * math.cos(mid_angle)
     y_text = y1 + (radio * 0.8) * math.sin(mid_angle)
-    ax.text(x_text, y_text,
-            f"{grados_a_dms(angulo_real)}\nDesv: {desviacion_mm:.2f} mm",
-            fontsize=9, color='orange', ha='center', va='center')
+    ax.text(x_text, y_text, "90°00′00″\nDesv: 0.00 mm", fontsize=9, color='orange',
+            ha='center', va='center')
 
     # Ajustes del gráfico
     ax.set_aspect('equal', adjustable='datalim')
@@ -108,7 +92,7 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, angulo_
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
     ax.legend(loc='upper left')
-    ax.set_title("Offset perpendicular (con desviación mostrada)", pad=10)
+    ax.set_title("Offset perpendicular (90° exacto)", pad=10)
     return fig
 
 # ---------------- INTERFAZ ----------------
@@ -122,16 +106,11 @@ st.sidebar.header("Offset")
 dist_offset = st.sidebar.number_input("Distancia (m)", value=10.0, step=0.001, format="%.3f")
 lado = st.sidebar.radio("Lado", ("Izquierda (Antihorario)", "Derecha (Horario)"))
 
-# ---------------- CÁLCULOS ----------------
+# Calcular offset
 P1_offset, P2_offset, L = calcular_offset(x1, y1, x2, y2, dist_offset, lado)
 if P1_offset is None:
     st.warning("Ingresa dos puntos distintos.")
     st.stop()
-
-# Ángulo real y desviaciones automáticas
-angulo_real = calcular_angulo_real(x1, y1, x2, y2, P1_offset, P2_offset)
-desviacion_seg = abs(angulo_real - 90) * 3600  # en segundos
-desviacion_mm = desviacion_lineal_mm(L, desviacion_seg)  # en mm
 
 hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado)).encode()).hexdigest()
 
@@ -143,21 +122,12 @@ st.write(f"P2 → X = {x2:.3f}, Y = {y2:.3f}")
 st.write("**Offset:**")
 st.write(f"P1′ → X = {P1_offset[0]:.3f}, Y = {P1_offset[1]:.3f}")
 st.write(f"P2′ → X = {P2_offset[0]:.3f}, Y = {P2_offset[1]:.3f}")
-
-st.write(f"**Ángulo real:** {grados_a_dms(angulo_real)}")
-st.write(f"**Desviación angular:** {desviacion_seg:.2f}″")
-st.write(f"**Desviación lineal:** {desviacion_mm:.2f} mm (en {L:.2f} m)")
-
-if desviacion_seg <= 2:
-    st.success("Excelente precisión (< 2″): desviación mínima.")
-elif desviacion_seg <= 10:
-    st.warning("Desviación moderada: revisar alineación.")
-else:
-    st.error("Desviación considerable: verificar instrumentación o replanteo.")
+st.write(f"**Ángulo interno:** 90°00′00″")
+st.write("**Desviación angular:** 0.00″ → **0.00 mm**")
 
 # ---------------- GRÁFICO ----------------
 with st.spinner("Generando gráfico..."):
-    fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L, angulo_real, desviacion_mm)
+    fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L)
     st.pyplot(fig, use_container_width=True)
 
-st.caption("Offset calculado y mostrado con desviación angular y lineal automáticamente.")
+st.caption("Offset calculado y mostrado con ángulo perpendicular exacto (90°).")
