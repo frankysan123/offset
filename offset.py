@@ -20,8 +20,8 @@ def grados_a_dms(grados):
 
 def desviacion_lineal_mm(distancia_m, segundos):
     """Convierte desviación angular (en segundos) a desviación lineal (en mm)"""
-    rad = segundos * (math.pi / (180 * 3600))
-    return distancia_m * math.tan(rad) * 1000
+    rad = segundos * (math.pi / (180 * 3600))  # segundos → radianes
+    return distancia_m * math.tan(rad) * 1000  # m → mm
 
 def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
     """Calcula un offset perpendicular exacto (90°) respecto a la línea base"""
@@ -128,8 +128,8 @@ if P1_offset is None:
 
 # Calcular ángulo real y desviación
 angulo_real = calcular_angulo_real(x1, y1, x2, y2, P1_offset, P2_offset)
-desviacion_seg = abs((angulo_real - 90) * 3600)
-desviacion_mm = desviacion_lineal_mm(L, desviacion_seg)
+desviacion_seg = abs((angulo_real - 90) * 3600)  # en segundos
+desviacion_mm = desviacion_lineal_mm(L, desviacion_seg)  # en mm
 
 hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado)).encode()).hexdigest()
 
@@ -158,4 +158,4 @@ with st.spinner("Generando gráfico..."):
     fig = generar_grafico(x1, y1, x2, y2, P1_offset, P2_offset, lado, L, angulo_real, desviacion_mm)
     st.pyplot(fig, use_container_width=True)
 
-st.caption("Offset calculado automáticamente con ángulo real y desviaciones mostradas.")
+st.caption("Offset calculado automáticamente con ángulo real y desviaciones mostradas en segundos y milímetros.")
