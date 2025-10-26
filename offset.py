@@ -128,9 +128,10 @@ if P1_offset is None:
     st.warning("Ingresa dos puntos distintos.")
     st.stop()
 
+# Ángulo real y desviaciones automáticas
 angulo_real = calcular_angulo_real(x1, y1, x2, y2, P1_offset, P2_offset)
-desviacion_seg = abs(angulo_real - 90) * 3600
-desviacion_mm = desviacion_lineal_mm(L, desviacion_seg)
+desviacion_seg = abs(angulo_real - 90) * 3600  # en segundos
+desviacion_mm = desviacion_lineal_mm(L, desviacion_seg)  # en mm
 
 hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado)).encode()).hexdigest()
 
