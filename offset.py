@@ -96,10 +96,10 @@ lado = st.sidebar.radio("Lado", ("Izquierda (Antihorario)", "Derecha (Horario)")
 # Cálculo del offset exacto
 P1_offset, P2_offset, L = calcular_offset(x1, y1, x2, y2, dist_offset, lado)
 
-# Simulación de ángulo real medido
-angulo_real = st.sidebar.number_input("Ángulo real medido (°)", value=89.9966, step=0.0001, format="%.4f")
-desviacion_seg = abs((angulo_real - 90) * 3600)
-desviacion_mm = desviacion_lineal_mm(L, desviacion_seg)
+# Ángulo exacto y desviación (0 por ser teórico)
+angulo_real = 90.0
+desviacion_seg = 0.0
+desviacion_mm = 0.0
 
 # Resultados
 st.subheader("Resultados")
@@ -111,19 +111,16 @@ st.write(f"P1′ → X = {P1_offset[0]:.3f}, Y = {P1_offset[1]:.3f}")
 st.write(f"P2′ → X = {P2_offset[0]:.3f}, Y = {P2_offset[1]:.3f}")
 
 st.write(f"**Ángulo interno:** {grados_a_dms(angulo_real)}")
-st.write(f"**Desviación angular:** {desviacion_seg:.2f}″")
-st.write(f"**Desviación lineal:** {desviacion_mm:.2f} mm (en {L:.2f} m)")
+st.write(f"**Desviación angular:** {desviacion_seg:.2f}″ → **{desviacion_mm:.2f} mm** en {L:.2f} m")
 
-if desviacion_seg <= 2:
-    st.success("Excelente precisión (< 2″): desviación mínima.")
-elif desviacion_seg <= 10:
-    st.warning("Desviación moderada: revisar alineación.")
+if desviacion_seg < 0.5:
+    st.success("Offset perpendicular exacto: 90°00′00″ (sin desviación significativa)")
 else:
-    st.error("Desviación considerable: verificar instrumentación o replanteo.")
+    st.warning(f"Desviación detectada: {desviacion_seg:.2f}″ = {desviacion_mm:.2f} mm")
 
 # Gráfico
-hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado, angulo_real)).encode()).hexdigest()
+hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado)).encode()).hexdigest()
 fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L, angulo_real, desviacion_mm, desviacion_seg)
 st.pyplot(fig, use_container_width=True)
 
-st.caption("Offset calculado con ángulo real medido y desviación angular/lineal mostrada en el gráfico.")
+st.caption("Offset calculado con ángulo interno de 90° y desviación mostrada en el gráfico.")
