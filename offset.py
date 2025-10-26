@@ -23,7 +23,6 @@ def desviacion_lineal_mm(distancia_m, segundos):
     rad = segundos * (math.pi / (180 * 3600))
     return distancia_m * math.tan(rad) * 1000
 
-@st.cache_data
 def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
     """Calcula un offset perpendicular exacto (90°) respecto a la línea base"""
     dx = x2 - x1
@@ -49,7 +48,18 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
     P2_offset = (x2 + ux_perp * dist_offset, y2 + uy_perp * dist_offset)
     return P1_offset, P2_offset, L
 
-@st.cache_data(show_spinner=False)
+def calcular_angulo_real(x1, y1, x2, y2, P1o, P2o):
+    """Calcula el ángulo real entre la línea base y el offset (en grados decimales)"""
+    v_base = (x2 - x1, y2 - y1)
+    v_offset = (P2o[0] - P1o[0], P2o[1] - P1o[1])
+    dot = v_base[0]*v_offset[0] + v_base[1]*v_offset[1]
+    mag_base = math.sqrt(v_base[0]**2 + v_base[1]**2)
+    mag_offset = math.sqrt(v_offset[0]**2 + v_offset[1]**2)
+    if mag_base * mag_offset == 0:
+        return 0
+    cos_theta = max(min(dot / (mag_base * mag_offset), 1), -1)
+    return math.degrees(math.acos(cos_theta))
+
 def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, angulo_real, desviacion_mm):
     fig, ax = plt.subplots(figsize=(8, 6))
 
@@ -113,14 +123,12 @@ dist_offset = st.sidebar.number_input("Distancia (m)", value=10.0, step=0.001, f
 lado = st.sidebar.radio("Lado", ("Izquierda (Antihorario)", "Derecha (Horario)"))
 
 # ---------------- CÁLCULOS ----------------
-# Calcular offset exacto
 P1_offset, P2_offset, L = calcular_offset(x1, y1, x2, y2, dist_offset, lado)
 if P1_offset is None:
     st.warning("Ingresa dos puntos distintos.")
     st.stop()
 
-# Simular desviación pequeña para mostrar
-angulo_real = 90.0 - 0.0005556  # 2″ de desviación por ejemplo
+angulo_real = calcular_angulo_real(x1, y1, x2, y2, P1_offset, P2_offset)
 desviacion_seg = abs(angulo_real - 90) * 3600
 desviacion_mm = desviacion_lineal_mm(L, desviacion_seg)
 
@@ -151,4 +159,4 @@ with st.spinner("Generando gráfico..."):
     fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L, angulo_real, desviacion_mm)
     st.pyplot(fig, use_container_width=True)
 
-st.caption("Offset calculado y mostrado con desviación angular y lineal.")
+st.caption("Offset calculado y mostrado con desviación angular y lineal automáticamente.")
