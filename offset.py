@@ -69,11 +69,11 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviac
     ax.annotate('', xy=(P1o[0] + dx*scale, P1o[1] + dy*scale), xytext=(P1o[0], P1o[1]),
                 arrowprops=dict(arrowstyle='->', color=color_offset, lw=1.5))
 
-    # Puntos y etiquetas
-    ax.text(x1, y1, "  P1 (inicio)", fontsize=9, verticalalignment='bottom')
-    ax.text(x2, y2, "  P2 (fin)", fontsize=9, verticalalignment='bottom')
-    ax.text(P1o[0], P1o[1], "  P1′ (inicio)", fontsize=9, color=color_offset, verticalalignment='bottom')
-    ax.text(P2o[0], P2o[1], "  P2′ (fin)", fontsize=9, color=color_offset, verticalalignment='bottom')
+    # Puntos y etiquetas (verificación explícita de P1 y P2)
+    ax.text(x1, y1, "  P1 (inicio)", fontsize=9, verticalalignment='bottom', horizontalalignment='right')
+    ax.text(x2, y2, "  P2 (fin)", fontsize=9, verticalalignment='bottom', horizontalalignment='left')
+    ax.text(P1o[0], P1o[1], "  P1′ (inicio)", fontsize=9, color=color_offset, verticalalignment='bottom', horizontalalignment='right')
+    ax.text(P2o[0], P2o[1], "  P2′ (fin)", fontsize=9, color=color_offset, verticalalignment='bottom', horizontalalignment='left')
 
     # Arco de 90°, orientado según dirección P1 → P2
     radio = L * 0.2
@@ -92,8 +92,13 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviac
             f"90°00′00″\nDesv: {desviacion_mm:.2f} mm",
             fontsize=9, color=color_desv, ha='center', va='center')
 
-    # Ajustes del gráfico
-    ax.set_aspect('equal', adjustable='datalim')
+    # Ajustes del gráfico: centrar los puntos P1, P2, P1′, P2′
+    all_x = [x1, x2, P1o[0], P2o[0]]
+    all_y = [y1, y2, P1o[1], P2o[1]]
+    margin = 0.5 * max(max(all_x) - min(all_x), max(all_y) - min(all_y))  # Margen del 50% del rango
+    ax.set_xlim(min(all_x) - margin, max(all_x) + margin)
+    ax.set_ylim(min(all_y) - margin, max(all_y) + margin)
+    ax.set_aspect('equal', adjustable='box')  # Cambiado a 'box' para forzar igualdad
     ax.grid(True, alpha=0.2)
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
