@@ -36,13 +36,13 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
     ux_dir = dx / L
     uy_dir = dy / L
 
-    # Vector perpendicular exacto (rotado 90°)
+    # Vector perpendicular exacto (rotado 90°), INVERSIÓN DE LADO
     if "Izquierda" in lado:
-        ux_perp = -uy_dir
-        uy_perp = ux_dir
-    else:
-        ux_perp = uy_dir
+        ux_perp = uy_dir  # Cambiado para generar offset en lado horario
         uy_perp = -ux_dir
+    else:
+        ux_perp = -uy_dir  # Cambiado para generar offset en lado antihorario
+        uy_perp = ux_dir
 
     # Coordenadas del offset perpendicular exacto
     P1_offset = (x1 + ux_perp * dist_offset, y1 + uy_perp * dist_offset)
@@ -75,10 +75,10 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviac
     ax.text(P1o[0], P1o[1], "  P1′", fontsize=9, color=color_offset)
     ax.text(P2o[0], P2o[1], "  P2′", fontsize=9, color=color_offset)
 
-    # Arco de 90°
+    # Arco de 90°, INVERSIÓN DE LADO
     radio = L * 0.2
     ang_base = math.degrees(math.atan2(dy, dx))
-    theta2 = ang_base + 90 if "Izquierda" in lado_str else ang_base - 90
+    theta2 = ang_base - 90 if "Izquierda" in lado_str else ang_base + 90  # Invertido para reflejar cambio de lado
 
     arc = Arc((x1, y1), radio*2, radio*2, angle=0, theta1=ang_base, theta2=theta2,
               color='orange', linewidth=1.5)
