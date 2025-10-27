@@ -112,12 +112,14 @@ st.sidebar.header("Offset")
 dist_offset = st.sidebar.number_input("Distancia (m)", value=10.0, step=0.001, format="%.3f")
 lado = st.sidebar.radio("Lado", ("Izquierda (Antihorario)", "Derecha (Horario)"))
 
+st.sidebar.header("Error angular del equipo (segundos)")
+error_seg = st.sidebar.number_input("Ingrese error angular", value=2.0, min_value=1.0, max_value=5.0, step=0.1, format="%.1f")
+
 # ---------------- CÁLCULOS ----------------
 # Calcular offset
 P1_offset, P2_offset, L = calcular_offset(x1, y1, x2, y2, dist_offset, lado)
 
-# Considerando error de equipo ±2"
-error_seg = 2.0
+# Calcular desviación lineal según error angular
 desviacion_mm = desviacion_lineal_mm(L, error_seg)
 
 # Color según tolerancia
@@ -135,9 +137,9 @@ st.write("**Ángulo interno:** 90°00′00″")
 st.write(f"**Desviación angular:** {error_seg:.2f}″ → **{desviacion_mm:.2f} mm** en {L:.2f} m")
 
 # ---------------- GRÁFICO ----------------
-hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado)).encode()).hexdigest()
+hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado, error_seg)).encode()).hexdigest()
 with st.spinner("Generando gráfico..."):
     fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L, desviacion_mm, color_desv)
     st.pyplot(fig, use_container_width=True)
 
-st.caption("Offset calculado y mostrado con ángulo perpendicular exacto (90°) considerando tolerancia del equipo ±2″.")
+st.caption("Offset calculado y mostrado con ángulo perpendicular exacto considerando el error angular del equipo.")
