@@ -38,10 +38,10 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
 
     # Vector perpendicular exacto (rotado 90°), INVERSIÓN DE LADO
     if "Izquierda" in lado:
-        ux_perp = uy_dir  # Cambiado para generar offset en lado horario
+        ux_perp = uy_dir  # Offset en lado horario
         uy_perp = -ux_dir
     else:
-        ux_perp = -uy_dir  # Cambiado para generar offset en lado antihorario
+        ux_perp = -uy_dir  # Offset en lado antihorario
         uy_perp = ux_dir
 
     # Coordenadas del offset perpendicular exacto
@@ -53,38 +53,38 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
 def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviacion_mm, color_desv):
     fig, ax = plt.subplots(figsize=(8, 6))
 
-    # Línea base
-    ax.plot([x1, x2], [y1, y2], 'k-', linewidth=1.5, label='Línea base', zorder=5)
+    # Línea base (de P1 a P2)
+    ax.plot([x1, x2], [y1, y2], 'k-', linewidth=1.5, label='Línea base (P1 → P2)', zorder=5)
 
     # Línea offset
     color_offset = 'blue' if "Izquierda" in lado_str else 'red'
     ax.plot([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, linestyle='--', linewidth=1.5,
-            label=f'Offset ({lado_str})', zorder=5)
+            label=f'Offset ({lado_str}, P1′ → P2′)', zorder=5)
 
-    # Flechas direccionales
+    # Flechas direccionales para enfatizar P1 → P2
     dx, dy = x2 - x1, y2 - y1
     scale = 0.3
     ax.annotate('', xy=(x1 + dx*scale, y1 + dy*scale), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='->', color='black', lw=1))
+                arrowprops=dict(arrowstyle='->', color='black', lw=1.5))
     ax.annotate('', xy=(P1o[0] + dx*scale, P1o[1] + dy*scale), xytext=(P1o[0], P1o[1]),
-                arrowprops=dict(arrowstyle='->', color=color_offset, lw=1))
+                arrowprops=dict(arrowstyle='->', color=color_offset, lw=1.5))
 
     # Puntos y etiquetas
-    ax.text(x1, y1, "  P1", fontsize=9)
-    ax.text(x2, y2, "  P2", fontsize=9)
-    ax.text(P1o[0], P1o[1], "  P1′", fontsize=9, color=color_offset)
-    ax.text(P2o[0], P2o[1], "  P2′", fontsize=9, color=color_offset)
+    ax.text(x1, y1, "  P1 (inicio)", fontsize=9, verticalalignment='bottom')
+    ax.text(x2, y2, "  P2 (fin)", fontsize=9, verticalalignment='bottom')
+    ax.text(P1o[0], P1o[1], "  P1′ (inicio)", fontsize=9, color=color_offset, verticalalignment='bottom')
+    ax.text(P2o[0], P2o[1], "  P2′ (fin)", fontsize=9, color=color_offset, verticalalignment='bottom')
 
-    # Arco de 90°, INVERSIÓN DE LADO
+    # Arco de 90°, orientado según dirección P1 → P2
     radio = L * 0.2
-    ang_base = math.degrees(math.atan2(dy, dx))
-    theta2 = ang_base - 90 if "Izquierda" in lado_str else ang_base + 90  # Invertido para reflejar cambio de lado
+    ang_base = math.degrees(math.atan2(dy, dx))  # Dirección de P1 a P2
+    theta2 = ang_base - 90 if "Izquierda" in lado_str else ang_base + 90  # Invertido por cambio de lado
 
     arc = Arc((x1, y1), radio*2, radio*2, angle=0, theta1=ang_base, theta2=theta2,
               color='orange', linewidth=1.5)
     ax.add_patch(arc)
 
-    # Texto del ángulo y desviación con color según tolerancia
+    # Texto del ángulo y desviación
     mid_angle = math.radians((ang_base + theta2) / 2)
     x_text = x1 + (radio * 0.8) * math.cos(mid_angle)
     y_text = y1 + (radio * 0.8) * math.sin(mid_angle)
@@ -98,15 +98,15 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviac
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
     ax.legend(loc='upper left')
-    ax.set_title("Offset perpendicular (90° exacto)", pad=10)
+    ax.set_title("Offset perpendicular (90° exacto, medición P1 → P2)", pad=10)
     return fig
 
 # ---------------- INTERFAZ ----------------
 st.sidebar.header("Línea base")
-x1 = st.sidebar.number_input("X1 (P1)", value=984.765, step=0.001, format="%.3f")
-y1 = st.sidebar.number_input("Y1 (P1)", value=964.723, step=0.001, format="%.3f")
-x2 = st.sidebar.number_input("X2 (P2)", value=997.622, step=0.001, format="%.3f")
-y2 = st.sidebar.number_input("Y2 (P2)", value=980.027, step=0.001, format="%.3f")
+x1 = st.sidebar.number_input("X1 (P1, inicio)", value=984.765, step=0.001, format="%.3f")
+y1 = st.sidebar.number_input("Y1 (P1, inicio)", value=964.723, step=0.001, format="%.3f")
+x2 = st.sidebar.number_input("X2 (P2, fin)", value=997.622, step=0.001, format="%.3f")
+y2 = st.sidebar.number_input("Y2 (P2, fin)", value=980.027, step=0.001, format="%.3f")
 
 st.sidebar.header("Offset")
 dist_offset = st.sidebar.number_input("Distancia (m)", value=10.0, step=0.001, format="%.3f")
@@ -127,12 +127,12 @@ color_desv = 'green' if error_seg <= 2 else 'red'
 
 # ---------------- RESULTADOS ----------------
 st.subheader("Resultados")
-st.write("**Base:**")
-st.write(f"P1 → X = {x1:.3f}, Y = {y1:.3f}")
-st.write(f"P2 → X = {x2:.3f}, Y = {y2:.3f}")
-st.write("**Offset:**")
-st.write(f"P1′ → X = {P1_offset[0]:.3f}, Y = {P1_offset[1]:.3f}")
-st.write(f"P2′ → X = {P2_offset[0]:.3f}, Y = {P2_offset[1]:.3f}")
+st.write("**Base (P1 → P2):**")
+st.write(f"P1 (inicio) → X = {x1:.3f}, Y = {y1:.3f}")
+st.write(f"P2 (fin) → X = {x2:.3f}, Y = {y2:.3f}")
+st.write("**Offset (P1′ → P2′):**")
+st.write(f"P1′ (inicio) → X = {P1_offset[0]:.3f}, Y = {P1_offset[1]:.3f}")
+st.write(f"P2′ (fin) → X = {P2_offset[0]:.3f}, Y = {P2_offset[1]:.3f}")
 st.write("**Ángulo interno:** 90°00′00″")
 st.write(f"**Desviación angular:** {error_seg:.2f}″ → **{desviacion_mm:.2f} mm** en {L:.2f} m")
 
@@ -142,4 +142,4 @@ with st.spinner("Generando gráfico..."):
     fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L, desviacion_mm, color_desv)
     st.pyplot(fig, use_container_width=True)
 
-st.caption("Offset calculado y mostrado con ángulo perpendicular exacto considerando el error angular del equipo.")
+st.caption("Offset calculado y mostrado con ángulo perpendicular exacto considerando el error angular del equipo. Medición desde P1 hacia P2.")
