@@ -51,54 +51,76 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
 
 @st.cache_data(show_spinner=False)
 def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviacion_mm, color_desv):
-    fig, ax = plt.subplots(figsize=(8, 6))
+    # Configurar estilo inspirado en AutoCAD
+    plt.style.use('seaborn-darkgrid')  # Tema más limpio y profesional
+    fig, ax = plt.subplots(figsize=(10, 8))  # Aumentar tamaño para mayor claridad
 
-    # Línea base
-    ax.plot([x1, x2], [y1, y2], 'k-', linewidth=1.5, label='Línea base', zorder=5)
+    # Línea base (más gruesa para destacar)
+    ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2.0, label='Línea base (P1 → P2)', zorder=5)
 
     # Línea offset
     color_offset = 'blue' if "Izquierda" in lado_str else 'red'
-    ax.plot([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, linestyle='--', linewidth=1.5,
-            label=f'Offset ({lado_str})', zorder=5)
+    ax.plot([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, linestyle='--', linewidth=1.8,
+            label=f'Offset ({lado_str}, {dist_offset:.3f} m)', zorder=5)
 
-    # Flechas direccionales
+    # Flechas direccionales más visibles
     dx, dy = x2 - x1, y2 - y1
     scale = 0.3
     ax.annotate('', xy=(x1 + dx*scale, y1 + dy*scale), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='->', color='black', lw=1))
+                arrowprops=dict(arrowstyle='-|>', color='black', lw=1.5, mutation_scale=15))
     ax.annotate('', xy=(P1o[0] + dx*scale, P1o[1] + dy*scale), xytext=(P1o[0], P1o[1]),
-                arrowprops=dict(arrowstyle='->', color=color_offset, lw=1))
+                arrowprops=dict(arrowstyle='-|>', color=color_offset, lw=1.5, mutation_scale=15))
 
-    # Puntos y etiquetas
-    ax.text(x1, y1, "  P1", fontsize=9)
-    ax.text(x2, y2, "  P2", fontsize=9)
-    ax.text(P1o[0], P1o[1], "  P1′", fontsize=9, color=color_offset)
-    ax.text(P2o[0], P2o[1], "  P2′", fontsize=9, color=color_offset)
+    # Puntos y etiquetas con alineación dinámica
+    label_offset = L * 0.05  # Desplazamiento proporcional a la longitud
+    ax.text(x1 + label_offset if dx >= 0 else x1 - label_offset, 
+            y1 + label_offset if dy >= 0 else y1 - label_offset, 
+            "P1 (inicio)", fontsize=10, fontfamily='Arial', ha='right' if dx >= 0 else 'left', va='bottom' if dy >= 0 else 'top')
+    ax.text(x2 + label_offset if dx >= 0 else x2 - label_offset, 
+            y2 + label_offset if dy >= 0 else y2 - label_offset, 
+            "P2 (fin)", fontsize=10, fontfamily='Arial', ha='left' if dx >= 0 else 'right', va='bottom' if dy >= 0 else 'top')
+    ax.text(P1o[0] + label_offset if dx >= 0 else P1o[0] - label_offset, 
+            P1o[1] + label_offset if dy >= 0 else P1o[1] - label_offset, 
+            "P1′ (inicio)", fontsize=10, fontfamily='Arial', color=color_offset, ha='right' if dx >= 0 else 'left', va='bottom' if dy >= 0 else 'top')
+    ax.text(P2o[0] + label_offset if dx >= 0 else P2o[0] - label_offset, 
+            P2o[1] + label_offset if dy >= 0 else P2o[1] - label_offset, 
+            "P2′ (fin)", fontsize=10, fontfamily='Arial', color=color_offset, ha='left' if dx >= 0 else 'right', va='bottom' if dy >= 0 else 'top')
 
-    # Arco de 90°
-    radio = L * 0.2
+    # Arco de 90° con tamaño dinámico
+    radio = min(max(L * 0.2, 0.5), 5.0)  # Limitar entre 0.5 y 5.0 para evitar extremos
     ang_base = math.degrees(math.atan2(dy, dx))
     theta2 = ang_base + 90 if "Izquierda" in lado_str else ang_base - 90
-
     arc = Arc((x1, y1), radio*2, radio*2, angle=0, theta1=ang_base, theta2=theta2,
-              color='orange', linewidth=1.5)
+              color='orange', linewidth=1.8)
     ax.add_patch(arc)
 
-    # Texto del ángulo y desviación
+    # Texto del ángulo y desviación con fondo para legibilidad
     mid_angle = math.radians((ang_base + theta2) / 2)
-    x_text = x1 + (radio * 0.8) * math.cos(mid_angle)
-    y_text = y1 + (radio * 0.8) * math.sin(mid_angle)
+    x_text = x1 + (radio * 1.2) * math.cos(mid_angle)  # Aumentar distancia para evitar superposición
+    y_text = y1 + (radio * 1.2) * math.sin(mid_angle)
     ax.text(x_text, y_text,
             f"90°00′00″\nDesv: {desviacion_mm:.2f} mm",
-            fontsize=9, color=color_desv, ha='center', va='center')
+            fontsize=9, fontfamily='Arial', color=color_desv, ha='center', va='center',
+            bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
 
-    # Ajustes del gráfico
-    ax.set_aspect('equal', adjustable='datalim')
-    ax.grid(True, alpha=0.2)
-    ax.set_xlabel("X (m)")
-    ax.set_ylabel("Y (m)")
-    ax.legend(loc='upper left')
-    ax.set_title("Offset perpendicular (90° exacto)", pad=10)
+    # Anotación de longitud de la línea base
+    mid_x = (x1 + x2) / 2
+    mid_y = (y1 + y2) / 2
+    ax.text(mid_x, mid_y, f"L = {L:.3f} m", fontsize=9, fontfamily='Arial', ha='center', va='top',
+            bbox=dict(facecolor='white', alpha=0.8, edgecolor='none'))
+
+    # Ajustes del gráfico: centrar con márgenes
+    all_x = [x1, x2, P1o[0], P2o[0]]
+    all_y = [y1, y2, P1o[1], P2o[1]]
+    margin = 0.3 * max(max(all_x) - min(all_x), max(all_y) - min(all_y))  # Margen del 30%
+    ax.set_xlim(min(all_x) - margin, max(all_x) + margin)
+    ax.set_ylim(min(all_y) - margin, max(all_y) + margin)
+    ax.set_aspect('equal', adjustable='box')  # Forzar igualdad
+    ax.grid(True, alpha=0.4, linestyle='--')  # Cuadrícula más visible
+    ax.set_xlabel("X (m)", fontfamily='Arial', fontsize=10)
+    ax.set_ylabel("Y (m)", fontfamily='Arial', fontsize=10)
+    ax.legend(loc='upper right', fontsize=9, frameon=True, edgecolor='black')  # Leyenda en esquina superior derecha
+    ax.set_title(f"Offset perpendicular (90° exacto, P1 → P2, {lado_str})", pad=10, fontfamily='Arial', fontsize=12)
     return fig
 
 # ---------------- INTERFAZ ----------------
