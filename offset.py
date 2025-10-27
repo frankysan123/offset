@@ -36,12 +36,12 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
     ux_dir = dx / L
     uy_dir = dy / L
 
-    # Vector perpendicular exacto (rotado 90°), INVERSIÓN DE LADO
+    # Vector perpendicular exacto (rotado 90°), INVERSIÓN DE LADO en sentido horario
     if "Izquierda" in lado:
-        ux_perp = uy_dir  # Offset en lado horario
+        ux_perp = uy_dir  # Rotación horario (+90° en sistema horario)
         uy_perp = -ux_dir
     else:
-        ux_perp = -uy_dir  # Offset en lado antihorario
+        ux_perp = -uy_dir  # Rotación antihorario (-90° en sistema horario)
         uy_perp = ux_dir
 
     # Coordenadas del offset perpendicular exacto
@@ -75,10 +75,10 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviac
     ax.text(P1o[0], P1o[1], "  P1′ (inicio)", fontsize=9, color=color_offset, verticalalignment='bottom', horizontalalignment='right')
     ax.text(P2o[0], P2o[1], "  P2′ (fin)", fontsize=9, color=color_offset, verticalalignment='bottom', horizontalalignment='left')
 
-    # Arco de 90°, orientado según dirección P1 → P2
+    # Arco de 90°, orientado en sentido horario
     radio = L * 0.2
-    ang_base = math.degrees(math.atan2(dy, dx))  # Dirección de P1 a P2
-    theta2 = ang_base - 90 if "Izquierda" in lado_str else ang_base + 90  # Invertido por cambio de lado
+    ang_base = math.degrees(math.atan2(-dy, dx))  # Sentido horario: invertir dy
+    theta2 = ang_base + 90 if "Izquierda" in lado_str else ang_base - 90  # Ajustado para sistema horario
 
     arc = Arc((x1, y1), radio*2, radio*2, angle=0, theta1=ang_base, theta2=theta2,
               color='orange', linewidth=1.5)
@@ -98,12 +98,12 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviac
     margin = 0.5 * max(max(all_x) - min(all_x), max(all_y) - min(all_y))  # Margen del 50% del rango
     ax.set_xlim(min(all_x) - margin, max(all_x) + margin)
     ax.set_ylim(min(all_y) - margin, max(all_y) + margin)
-    ax.set_aspect('equal', adjustable='box')  # Cambiado a 'box' para forzar igualdad
+    ax.set_aspect('equal', adjustable='box')  # Forzar igualdad
     ax.grid(True, alpha=0.2)
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
     ax.legend(loc='upper left')
-    ax.set_title("Offset perpendicular (90° exacto, medición P1 → P2)", pad=10)
+    ax.set_title("Offset perpendicular (90° exacto, medición P1 → P2, sentido horario)", pad=10)
     return fig
 
 # ---------------- INTERFAZ ----------------
@@ -147,4 +147,4 @@ with st.spinner("Generando gráfico..."):
     fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L, desviacion_mm, color_desv)
     st.pyplot(fig, use_container_width=True)
 
-st.caption("Offset calculado y mostrado con ángulo perpendicular exacto considerando el error angular del equipo. Medición desde P1 hacia P2.")
+st.caption("Offset calculado y mostrado con ángulo perpendicular exacto considerando el error angular del equipo. Medición desde P1 hacia P2 en sistema horario.")
