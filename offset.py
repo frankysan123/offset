@@ -1,3 +1,4 @@
+import streamlit as st
 import math
 import matplotlib.pyplot as plt
 from matplotlib.patches import Arc
@@ -135,3 +136,5 @@ hash_datos = hashlib.md5(str((x1, y1, x2, y2, dist_offset, lado, error_seg)).enc
 with st.spinner("Generando gráfico..."):
     fig = generar_grafico_cached(hash_datos, x1, y1, x2, y2, P1_offset, P2_offset, lado, L, desviacion_mm, color_desv)
     st.pyplot(fig, use_container_width=True)
+
+st.caption("Offset calculado y mostrado con ángulo perpendicular exacto considerando el error angular del equipo.")
