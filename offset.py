@@ -63,17 +63,19 @@ def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviac
 
     # Flechas direccionales pequeñas
     dx, dy = x2 - x1, y2 - y1
-    scale = 0.2  # tamaño reducido
+    scale = 0.2
     ax.annotate('', xy=(x1 + dx*scale, y1 + dy*scale), xytext=(x1, y1),
                 arrowprops=dict(arrowstyle='->', color='black', lw=1))
-
     ax.annotate('', xy=(P1o[0] + dx*scale, P1o[1] + dy*scale), xytext=(P1o[0], P1o[1]),
                 arrowprops=dict(arrowstyle='->', color=color_offset, lw=1))
 
-    # --- Flecha del Norte ---
-    ax.annotate('', xy=(x1, y1 + 8), xytext=(x1, y1),
+    # --- Flecha del Norte fija en la parte superior ---
+    # Se dibuja siempre en la parte superior del gráfico
+    ax.annotate('', xy=(0.5, 0.98), xytext=(0.5, 0.93),
+                xycoords='axes fraction', textcoords='axes fraction',
                 arrowprops=dict(arrowstyle='->', color='green', lw=1.5))
-    ax.text(x1, y1 + 8.5, "N", color='green', fontsize=10, ha='center', va='bottom', fontweight='bold')
+    ax.text(0.5, 0.99, "N", transform=ax.transAxes,
+            color='green', fontsize=10, ha='center', va='bottom', fontweight='bold')
 
     # Puntos y etiquetas
     ax.text(x1, y1, "  P1", fontsize=9)
