@@ -1,7 +1,7 @@
 import streamlit as st
 import math
 import matplotlib.pyplot as plt
-from matplotlib.patches import Arc, FancyArrow
+from matplotlib.patches import Arc
 import hashlib
 
 # ---------------- CONFIGURACIÓN DE PÁGINA ----------------
@@ -10,6 +10,7 @@ st.title("Offset y Ángulo Interno Visual (Estilo AutoCAD)")
 
 # ---------------- FUNCIONES AUXILIARES ----------------
 def grados_a_dms(grados):
+    """Convierte grados decimales a formato grados, minutos, segundos"""
     grados_abs = abs(grados)
     g = int(grados_abs)
     m = int((grados_abs - g) * 60)
@@ -18,21 +19,24 @@ def grados_a_dms(grados):
     return f"{signo}{g}° {m:02d}' {s:05.2f}\""
 
 def desviacion_lineal_mm(distancia_m, segundos):
+    """Convierte desviación angular (en segundos) a desviación lineal (en mm)"""
     rad = segundos * (math.pi / (180 * 3600))
     return distancia_m * math.tan(rad) * 1000
 
 @st.cache_data
 def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
+    """Calcula un offset perpendicular exacto (90°) respecto a la línea base"""
     dx = x2 - x1
     dy = y2 - y1
     L = math.sqrt(dx**2 + dy**2)
     if L < 1e-6:
         return None, None, None
 
+    # Vector unitario de la línea base
     ux_dir = dx / L
     uy_dir = dy / L
 
-    # Vector perpendicular corregido
+    # Vector perpendicular (izquierda / derecha corregido)
     if "Izquierda" in lado:
         ux_perp = uy_dir
         uy_perp = -ux_dir
@@ -40,6 +44,7 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
         ux_perp = -uy_dir
         uy_perp = ux_dir
 
+    # Coordenadas del offset perpendicular exacto
     P1_offset = (x1 + ux_perp * dist_offset, y1 + uy_perp * dist_offset)
     P2_offset = (x2 + ux_perp * dist_offset, y2 + uy_perp * dist_offset)
     return P1_offset, P2_offset, L
@@ -47,74 +52,59 @@ def calcular_offset(x1, y1, x2, y2, dist_offset, lado):
 @st.cache_data(show_spinner=False)
 def generar_grafico_cached(_hash, x1, y1, x2, y2, P1o, P2o, lado_str, L, desviacion_mm, color_desv):
     fig, ax = plt.subplots(figsize=(8, 6))
-    ax.set_facecolor("#f8f9fa")  # Fondo tipo plano
 
     # Línea base
-    ax.plot([x1, x2], [y1, y2], 'k-', linewidth=2, label='Línea base', zorder=5)
-    ax.scatter([x1, x2], [y1, y2], color='black', s=30, zorder=6)
+    ax.plot([x1, x2], [y1, y2], 'k-', linewidth=1.5, label='Línea base', zorder=5)
 
     # Línea offset
     color_offset = 'blue' if "Izquierda" in lado_str else 'red'
-    ax.plot([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, linestyle='--', linewidth=2,
+    ax.plot([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, linestyle='--', linewidth=1.5,
             label=f'Offset ({lado_str})', zorder=5)
-    ax.scatter([P1o[0], P2o[0]], [P1o[1], P2o[1]], color=color_offset, s=30, zorder=6)
 
-    # Flechas direccionales
+    # Flechas direccionales pequeñas
     dx, dy = x2 - x1, y2 - y1
-    scale = 0.3
+    scale = 0.2  # tamaño reducido
     ax.annotate('', xy=(x1 + dx*scale, y1 + dy*scale), xytext=(x1, y1),
-                arrowprops=dict(arrowstyle='->', color='black', lw=1.2))
+                arrowprops=dict(arrowstyle='->', color='black', lw=1))
+
     ax.annotate('', xy=(P1o[0] + dx*scale, P1o[1] + dy*scale), xytext=(P1o[0], P1o[1]),
-                arrowprops=dict(arrowstyle='->', color=color_offset, lw=1.2))
+                arrowprops=dict(arrowstyle='->', color=color_offset, lw=1))
 
-    # Puntos y etiquetas con fondo
-    def etiqueta(ax, x, y, texto, color='black'):
-        ax.text(x, y, texto, fontsize=9, color=color, ha='left', va='bottom',
-                bbox=dict(facecolor='white', edgecolor='none', alpha=0.7, pad=1))
+    # --- Flecha del Norte ---
+    ax.annotate('', xy=(x1, y1 + 8), xytext=(x1, y1),
+                arrowprops=dict(arrowstyle='->', color='green', lw=1.5))
+    ax.text(x1, y1 + 8.5, "N", color='green', fontsize=10, ha='center', va='bottom', fontweight='bold')
 
-    etiqueta(ax, x1, y1, "P1")
-    etiqueta(ax, x2, y2, "P2")
-    etiqueta(ax, P1o[0], P1o[1], "P1′", color=color_offset)
-    etiqueta(ax, P2o[0], P2o[1], "P2′", color=color_offset)
+    # Puntos y etiquetas
+    ax.text(x1, y1, "  P1", fontsize=9)
+    ax.text(x2, y2, "  P2", fontsize=9)
+    ax.text(P1o[0], P1o[1], "  P1′", fontsize=9, color=color_offset)
+    ax.text(P2o[0], P2o[1], "  P2′", fontsize=9, color=color_offset)
 
     # Arco de 90°
     radio = L * 0.2
     ang_base = math.degrees(math.atan2(dy, dx))
     theta2 = ang_base + 90 if "Izquierda" in lado_str else ang_base - 90
+
     arc = Arc((x1, y1), radio*2, radio*2, angle=0, theta1=ang_base, theta2=theta2,
               color='orange', linewidth=1.5)
     ax.add_patch(arc)
 
-    # Texto del ángulo
+    # Texto del ángulo y desviación
     mid_angle = math.radians((ang_base + theta2) / 2)
-    x_text = x1 + (radio * 0.9) * math.cos(mid_angle)
-    y_text = y1 + (radio * 0.9) * math.sin(mid_angle)
+    x_text = x1 + (radio * 0.8) * math.cos(mid_angle)
+    y_text = y1 + (radio * 0.8) * math.sin(mid_angle)
     ax.text(x_text, y_text,
             f"90°00′00″\nDesv: {desviacion_mm:.2f} mm",
-            fontsize=9, color=color_desv, ha='center', va='center',
-            bbox=dict(facecolor='white', alpha=0.6, edgecolor='none'))
+            fontsize=9, color=color_desv, ha='center', va='center')
 
-    # Texto de orientación (Izquierda / Derecha)
-    xm = (P1o[0] + P2o[0]) / 2
-    ym = (P1o[1] + P2o[1]) / 2
-    ax.text(xm, ym, lado_str.split()[0], color=color_offset, fontsize=10, weight='bold', ha='center', va='center')
-
-    # Flecha de norte (N ↑)
-    minx, maxx = ax.get_xlim()
-    miny, maxy = ax.get_ylim()
-    altura = maxy - miny
-    ax.add_patch(FancyArrow(minx + (maxx - minx)*0.9, miny + altura*0.1, 0, altura*0.1,
-                            width=0.5, head_width=1.5, head_length=1.5, color='black'))
-    ax.text(minx + (maxx - minx)*0.9, miny + altura*0.22, "N", ha='center', va='bottom', fontsize=10, weight='bold')
-
-    # Ajustes generales
+    # Ajustes del gráfico
     ax.set_aspect('equal', adjustable='datalim')
-    ax.grid(True, alpha=0.3, linestyle=':')
+    ax.grid(True, alpha=0.2)
     ax.set_xlabel("X (m)")
     ax.set_ylabel("Y (m)")
-    ax.legend(loc='upper left', framealpha=0.8)
+    ax.legend(loc='upper left')
     ax.set_title("Offset perpendicular (90° exacto)", pad=10)
-    ax.ticklabel_format(style='plain', useOffset=False)
     return fig
 
 # ---------------- INTERFAZ ----------------
